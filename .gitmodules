@@ -1,0 +1,12 @@
+[submodule "dependencies/re2c"]
+	path = dependencies/re2c
+	url = https://github.com/skvadrik/re2c.git
+[submodule "dependencies/CLI11"]
+	path = dependencies/CLI11
+	url = https://github.com/CLIUtils/CLI11.git
+[submodule "hashlibpp"]
+	path = dependencies/hashlibpp
+	url = https://github.com/pkcakeout/hashlibpp.git
+[submodule "dependencies/detours/Detours"]
+	path = dependencies/detours/Detours
+	url = https://github.com/microsoft/Detours.git
