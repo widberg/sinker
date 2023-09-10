@@ -28,7 +28,7 @@ An integer literal is a decimal, hexadecimal, prefixed with `0x`, octal, prefixe
 
 #### String Literal
 
-A string literal is any sequence of characters enclosed in quotes. There are no escape sequences. String literals may span across multiple lines.
+A string literal is any sequence of characters enclosed in quotes. There are no escape sequences. Adjoining string literals will be treated as a single string literal i.e. `"sink" "er ro" "cks"` is equivalent to `"sinker rocks"`. This can be used to split a string literal across multiple lines.
 
 #### Boolean Literal
 
@@ -155,8 +155,8 @@ Equivalent to `*(expression1 + expression2 * sizeof(void*))` where `sizeof(void*
 
 `expression1->expression2`
 
-Equivalent to `*expression1 + expression2` where `*expression1` is the result of the dereference operation and `expression2` is the offset.  
-Inspired by [LiveSplit Auto Splitters' Pointer Paths](https://github.com/LiveSplit/LiveSplit.AutoSplitters#pointer-paths).
+Equivalent to `*expression1 + expression2`. This can be chained together multiple times for a LiveSplit Auto Splitter style pointer path i.e. `0xDEADBEEF->0xABCD->0x1234` will read an address at `0xDEADBEEF` then add `0xABCD` and read an address there, finally `0x1234` is added to that address.  
+Inspired by [LiveSplit Auto Splitter Pointer Paths](https://github.com/LiveSplit/LiveSplit.AutoSplitters#pointer-paths).
 
 #### Relocate
 
