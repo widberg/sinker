@@ -85,7 +85,7 @@ lexer_state->in_pattern_match_expression = false;
 %token TAG "tag"
 %token POINTER_PATH "->"
 
-%type<std::string> IDENTIFIER STRING
+%type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
 %type<pattern_byte> PATTERN_BYTE
 %type<std::shared_ptr<Expression>> expression
@@ -152,12 +152,15 @@ expression
     }
     ;
 
+string
+    : STRING        { $$ = $1; }
+    | string STRING { $$ = $1 + $2; }
+
 attribute_value
     : INTEGER { $$ = attribute_value_t {$1}; }
-    | STRING  { $$ = attribute_value_t {$1}; }
+    | string  { $$ = attribute_value_t {$1}; }
     | BOOL    { $$ = attribute_value_t {$1}; }
     ;
-
 
 identifier_set_full
     : IDENTIFIER                    { $$ = identifier_set_t {$1}; }
@@ -170,7 +173,7 @@ identifier_set
     ;
 
 stmt
-    : "module" IDENTIFIER ',' STRING ';'
+    : "module" IDENTIFIER ',' string ';'
     {
         SINKER_ASSERT(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, $4);
@@ -180,13 +183,13 @@ stmt
         SINKER_ASSERT(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, {});
     }
-    | "variant" IDENTIFIER ',' IDENTIFIER ',' STRING ';'
+    | "variant" IDENTIFIER ',' IDENTIFIER ',' string ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
         SINKER_ASSERT(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");
         ctx->get_module($2)->add_variant($4, $6);
     }
-    | "symbol" IDENTIFIER ':' ':' IDENTIFIER ',' STRING ';'
+    | "symbol" IDENTIFIER ':' ':' IDENTIFIER ',' string ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
         SINKER_ASSERT(!ctx->get_module($2)->get_symbol($5), @5, "Symbol exists");
