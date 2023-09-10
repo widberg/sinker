@@ -1,6 +1,6 @@
 # Sinker
 
-Instrument Windows binaries hook, line, and sinker at runtime with this convenient all-in-one hook specification and installation suite. [Sinker DSL](#sinker-dsl) is a simple domain-specific language for specifying addresses in a loaded module programmatically. The [Sinker Compiler](#sinker-compiler) makes it easy to amalgamate many Sinker DSL files and produce `.def` headers for easy use of the Sinker Runtime Library from C++. The [Sinker Runtime Library](#sinker-runtime-library) installs the specified hooks into a module at runtime.
+Instrument Windows binaries hook, line, and sinker at runtime with this batteries included hook specification and installation suite. [Sinker DSL](#sinker-dsl) is a simple domain-specific language for specifying addresses in a loaded module programmatically. The [Sinker Compiler](#sinker-compiler) makes it easy to amalgamate many Sinker DSL files and produce `.def` headers for easy use of the Sinker Runtime Library from C++. The [Sinker Runtime Library](#sinker-runtime-library) installs the specified hooks into a module at runtime.
 
 This project spawned from my desire for a more expressive way of declaring addresses across variants of modules. My goal for this suite is to target the lowest common denominator of functionality required to instrument different binaries. That is to say, if you need some very specific functionality for a binary you are working with, implement it on top of Sinker, rather than complicating Sinker with additional features that are only useful in specific cases. The restriction to Windows and C++ is rather arbitrary, that's the platform and language I intend to use this suite for. It should be possible to add support for additional platforms and/or languages, albeit not trivial.
 
@@ -53,7 +53,7 @@ A module corresponds to a target PE file, `.exe` or `.dll`, loaded into the inje
 
 #### Variant
 
-A variant corresponds to a known distribution of a target PE file, identified by its hash. This makes it easier to provide known addresses for each binary variant. If a PE file does not match any of the known hashes, it will not have a variant name. The SHA256 hash of a file can be obtained using the `certUtil -hashfile C:\file.exe SHA256` command on Windows.
+A variant corresponds to a known distribution of a target PE file, identified by its SHA256 hash. This makes it easier to provide known addresses for each binary variant. If a PE file does not match any of the known hashes, it will not have a variant name. The SHA256 hash of a file can be obtained using the `certUtil -hashfile C:\file.exe SHA256` command on Windows.
 
 `variant <module_name:identifier>, <variant_name:identifier>, <sha256_hash:string>;`
 
@@ -69,7 +69,7 @@ An address provides instructions on how to calculate the address for a symbol ba
 
 Address directives for each symbol are evaluated in the order they are declared. For each address directive where a `variant_name` in the set matches the current module's variant or the wildcard is used, the expression is evaluated. The first expression that is resolved will be the calculated address of the symbol. If all expressions are unresolved, the symbol is unresolved.
 
-It is generally advisable to declare at least one address declaration where the variant is excluded. This is so that if a module does not have a variant name, due to no hashes matching or lack of variant declarations, there is still an opportunity to resolve an address for the symbol.
+It is generally advisable to declare at least one address declaration where the variant is a wildcard. This is so that if a module does not have a variant name, due to no hashes matching or lack of variant declarations, there is still an opportunity to resolve an address for the symbol.
 
 `address <module_name:identifier>::<symbol_name:identifier>, <variant_names:identifier_set>, <expression:expression>;`
 
@@ -149,6 +149,13 @@ The expression to be dereferenced will be treated as a `void**`, the result of t
 
 Equivalent to `*(expression1 + expression2 * sizeof(void*))` where `sizeof(void*)` is the size, in bytes, of a pointer; note that `sizeof(void*)` is purely demonstrative of the behavior of the operation and not valid Sinker DSL.
 
+#### Pointer Path
+
+`expression1->expression2`
+
+Equivalent to `*expression1 + expression2` where `*expression1` is the result of the dereference operation and `expression2` is the offset.  
+Inspired by [LiveSplit Auto Splitters' Pointer Paths](https://github.com/LiveSplit/LiveSplit.AutoSplitters#pointer-paths).
+
 #### Relocate
 
 `@expression`
@@ -167,7 +174,7 @@ Adapted from [C Operator Precedence](https://en.cppreference.com/w/c/language/op
 
 | Precedence | Operator | Description | Associativity |
 |------------|----------|-------------|---------------|
-| 1 | {}<br />[] | Pattern Match<br />Array Subscripting | Left-to-right |
+| 1 | {}<br />[]<br />-> | Pattern Match<br />Array Subscripting<br />Pointer Path | Left-to-right |
 | 2 | !<br />*<br />@<br />? | GetProcAddress<br />Indirection (dereference)<br />Relocate<br />Null Check | Right-to-left |
 | 3 | * | Multiplication | Left-to-right |
 | 4 | +<br />- | Addition<br />Subtraction | Left-to-right |
@@ -261,7 +268,7 @@ git clone https://github.com/widberg/sinker.git --recurse-submodules --shallow-s
 
 ### Building On Windows
 
-Use the `x86 Native Tools Command Prompt for VS 2022` environment while generating and building the
+Use the `x86/64 Native Tools Command Prompt for VS 2022` environment while generating and building the
 project.
 
 #### Ninja

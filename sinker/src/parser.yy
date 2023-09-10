@@ -83,6 +83,7 @@ lexer_state->in_pattern_match_expression = false;
 %token ADDRESS "address"
 %token SET "set"
 %token TAG "tag"
+%token POINTER_PATH "->"
 
 %type<std::string> IDENTIFIER STRING
 %type<expression_value_t> INTEGER
@@ -96,7 +97,7 @@ lexer_state->in_pattern_match_expression = false;
 %left '+' '-'
 %left '*'
 %right INDIRECTION '@' '?' '!'
-%left '[' '{'
+%left '[' '{' "->"
 
 %start slist
 
@@ -126,6 +127,7 @@ expression
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }
     | '?' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new NullCheckExpression($2));          }
     | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new ArraySubscriptExpression($1, $3)); }
+    | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new PointerPathExpression($1, $3));    }
     | '!' IDENTIFIER ':' ':' IDENTIFIER
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
@@ -265,6 +267,8 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
 
         'true'         { TOKENV(BOOL, true); }
         'false'        { TOKENV(BOOL, false); }
+
+        '->'           { TOKEN(POINTER_PATH); }
 
         // Identifier
         @s [a-zA-Z_][a-zA-Z_0-9]* @e { TOKENV(IDENTIFIER, std::string(s, e - s)); }
