@@ -60,9 +60,9 @@ static sinker::location loc;
 
 static struct
 {
-    char *cur;
-    char *mar;
-    char *lim;
+    const char *cur;
+    const char *mar;
+    const char *lim;
     Language mode = Language::SINKER;
 } in;
 
@@ -335,7 +335,7 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
     }
 }
 
-bool Context::interpret(char *input, unsigned int size, Language language, std::string input_filename, bool debug) {
+bool Context::interpret(const char *input, unsigned int size, Language language, std::string input_filename, bool debug) {
         sinker::location::filename_type filename(input_filename);
 
         // TODO: add this stuff to the lexer context
@@ -364,4 +364,8 @@ bool Context::interpret(std::istream& input_stream, Language language, std::stri
         buffer.push_back('\0');
 
         return interpret(buffer.data(), (unsigned int)size, language, input_filename, debug);
+}
+
+bool Context::interpret(const std::string& input, Language language, std::string input_filename, bool debug) {
+        return interpret(input.c_str(), input.length(), language, input_filename, debug);
 }

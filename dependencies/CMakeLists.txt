@@ -1,3 +1,8 @@
+# Catch2
+if(SINKER_BUILD_TESTS AND NOT TARGET Catch2::Catch2WithMain)
+    add_subdirectory(Catch2)
+endif()
+
 # CLI11
 if(NOT TARGET CLI11::CLI11)
     add_subdirectory(CLI11)

@@ -18,9 +18,23 @@ endif()
 
 project(sinker VERSION 0.0.1 LANGUAGES CXX)
 
+option(SINKER_BUILD_TESTS "Build tests" OFF)
+
 set(CMAKE_CXX_STANDARD 17 CACHE INTERNAL "")
 set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE INTERNAL "")
 
 add_subdirectory(dependencies)
 add_subdirectory(sinker)
 add_subdirectory(sinkerc)
+
+if(SINKER_BUILD_TESTS)
+  add_executable(sinker-tests
+    tests/test.cpp
+  )
+  target_link_libraries(sinker-tests PRIVATE Catch2::Catch2WithMain sinker)
+
+  list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
+  include(CTest)
+  include(Catch)
+  catch_discover_tests(sinker-tests)
+endif()
