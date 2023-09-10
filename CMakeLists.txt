@@ -19,9 +19,11 @@ endif()
 project(sinker VERSION 0.0.1 LANGUAGES CXX)
 
 option(SINKER_BUILD_TESTS "Build tests" OFF)
+option(SINKER_BUILD_DOCS "Build docs" OFF)
 
 set(CMAKE_CXX_STANDARD 17 CACHE INTERNAL "")
 set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE INTERNAL "")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" CACHE INTERNAL "")
 
 add_subdirectory(dependencies)
 add_subdirectory(sinker)
@@ -43,4 +45,8 @@ if(SINKER_BUILD_TESTS)
   include(CTest)
   include(Catch)
   catch_discover_tests(sinker-tests)
+endif()
+
+if(SINKER_BUILD_DOCS)
+	add_subdirectory(docs)
 endif()
