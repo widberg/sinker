@@ -1,5 +1,7 @@
 # Sinker
 
+[![Build Status](https://github.com/widberg/sinker/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/widberg/sinker/actions/workflows/test.yml)
+
 Instrument Windows binaries hook, line, and sinker at runtime with this batteries included hook specification and installation suite. [Sinker DSL](#sinker-dsl) is a simple domain-specific language for specifying addresses in a loaded module programmatically. The [Sinker Compiler](#sinker-compiler) makes it easy to amalgamate many Sinker DSL files and produce `.def` headers for easy use of the Sinker Runtime Library from C++. The [Sinker Runtime Library](#sinker-runtime-library) installs the specified hooks into a module at runtime.
 
 This project spawned from my desire for a more expressive way of declaring addresses across variants of modules. My goal for this suite is to target the lowest common denominator of functionality required to instrument different binaries. That is to say, if you need some very specific functionality for a binary you are working with, implement it on top of Sinker, rather than complicating Sinker with additional features that are only useful in specific cases. The restriction to Windows and C++ is rather arbitrary, that's the platform and language I intend to use this suite for. It should be possible to add support for additional platforms and/or languages, albeit not trivial.
