@@ -1,0 +1,29 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Test
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - uses: ilammy/msvc-dev-cmd@v1.12.0
+      with:
+        arch: win32
+
+    - name: Download WinFlexBison
+      uses: suisei-cn/actions-download-file@v1.3.0
+      with:
+        url: "https://github.com/lexxmark/winflexbison/releases/download/v2.5.25/win_flex_bison-2.5.25.zip"
+
+    - name: Unzip WinFlexBison
+      run: 7z x win_flex_bison-2.5.25.zip -obin
+
+    - name: Build
+      run: |
+           cmake -B build -G Ninja -DSINKER_BUILD_TESTS=ON -DBISON_EXECUTABLE="${{ github.workspace }}/bin/win_bison.exe" -DCMAKE_BUILD_TYPE=RelWithDebInfo
+           cmake --build build --target check-sinker --config RelWithDebInfo

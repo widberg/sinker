@@ -33,6 +33,12 @@ if(SINKER_BUILD_TESTS)
   )
   target_link_libraries(sinker-tests PRIVATE Catch2::Catch2WithMain sinker)
 
+  add_custom_target(check-sinker
+      COMMAND "${CMAKE_CTEST_COMMAND}" --output-on-failure
+      USES_TERMINAL
+      DEPENDS sinker-tests
+      COMMENT "Build and run all the tests.")
+
   list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
   include(CTest)
   include(Catch)
