@@ -1,3 +1,6 @@
+#include <sstream>
+#include <string>
+
 #include <catch2/catch_test_macros.hpp>
 #include <sinker/sinker.hpp>
 
@@ -7,6 +10,11 @@ TEST_CASE("DSL Empty Input", "[dsl]") {
     std::string input = "";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+
+    std::stringstream output;
+    context.dump(output);
+
+    REQUIRE(output.str() == input);
 }
 
 TEST_CASE("DSL FMTK Integration Test", "[dsl]") {
@@ -81,4 +89,9 @@ address xlive::ValidateMemory, [v3_5_95_0], @5191347;
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "fmtk.skr"));
+
+    std::stringstream output;
+    context.dump(output);
+
+    REQUIRE(output.str() == input);
 }

@@ -84,6 +84,7 @@ lexer_state->in_pattern_match_expression = false;
 %token SET "set"
 %token TAG "tag"
 %token POINTER_PATH "->"
+%token SYMBOL_RESOLUTION "::"
 
 %type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
@@ -121,30 +122,30 @@ expression
     : INTEGER                          { $$ = std::shared_ptr<Expression>((Expression*)new IntegerExpression($1));            }
     | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new ParenthesesExpression($2));        }
     | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new AdditionExpression($1, $3));       }
+    | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new SubtractionExpression($1, $3));    }
     | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new MultiplicationExpression($1, $3)); }
     | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new IntegerDivisionExpression($1, $3)); }
     | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new ModuloExpression($1, $3)); }
-    | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new SubtractionExpression($1, $3));    }
     | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }
     | '?' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new NullCheckExpression($2));          }
     | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new ArraySubscriptExpression($1, $3)); }
     | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new PointerPathExpression($1, $3));    }
-    | '!' IDENTIFIER ':' ':' IDENTIFIER
+    | '!' IDENTIFIER "::" IDENTIFIER
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        $$ = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(ctx->get_module($2), $5));
+        $$ = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(ctx->get_module($2), $4));
     }
     | IDENTIFIER
     {
         SINKER_ASSERT(ctx->get_module($1), @1, "Module does not exist");
         $$ = std::shared_ptr<Expression>((Expression*)new ModuleExpression(ctx->get_module($1)));
     }
-    | IDENTIFIER ':' ':' IDENTIFIER
+    | IDENTIFIER "::" IDENTIFIER
     {
         SINKER_ASSERT(ctx->get_module($1), @1, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($1)->get_symbol($4), @4, "Symbol does not exist");
-        $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module($1)->get_symbol($4)));
+        SINKER_ASSERT(ctx->get_module($1)->get_symbol($3), @3, "Symbol does not exist");
+        $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module($1)->get_symbol($3)));
     }
     | '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_expression {lexer_state->in_pattern_match_expression = false;} '}'
     {
@@ -189,39 +190,39 @@ stmt
         SINKER_ASSERT(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");
         ctx->get_module($2)->add_variant($4, $6);
     }
-    | "symbol" IDENTIFIER ':' ':' IDENTIFIER ',' string ';'
+    | "symbol" IDENTIFIER "::" IDENTIFIER ',' string ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(!ctx->get_module($2)->get_symbol($5), @5, "Symbol exists");
-        ctx->get_module($2)->emplace_symbol($5, $7);
+        SINKER_ASSERT(!ctx->get_module($2)->get_symbol($4), @4, "Symbol exists");
+        ctx->get_module($2)->emplace_symbol($4, $6);
     }
-    | "address" IDENTIFIER ':' ':' IDENTIFIER ',' '[' identifier_set ']' ',' expression ';'
+    | "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($2)->get_symbol($5), @5, "Symbol does not exist");
-        ctx->get_module($2)->get_symbol($5)->add_address($8, $11);
+        SINKER_ASSERT(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
+        ctx->get_module($2)->get_symbol($4)->add_address($7, $10);
     }
     | "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
         ctx->get_module($2)->set_attribute($4, $6);
     }
-    | "set" IDENTIFIER ':' ':' IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
+    | "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($2)->get_symbol($5), @4, "Symbol does not exist");
-        ctx->get_module($2)->get_symbol($5)->set_attribute($7, $9);
+        SINKER_ASSERT(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
+        ctx->get_module($2)->get_symbol($4)->set_attribute($6, $8);
     }
     | "tag" IDENTIFIER ',' IDENTIFIER ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
         ctx->get_module($2)->add_tag($4);
     }
-    | "tag" IDENTIFIER ':' ':' IDENTIFIER ',' IDENTIFIER ';'
+    | "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ';'
     {
         SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($2)->get_symbol($5), @4, "Symbol does not exist");
-        ctx->get_module($2)->get_symbol($5)->add_tag($7);
+        SINKER_ASSERT(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
+        ctx->get_module($2)->get_symbol($4)->add_tag($6);
     }
     ;
 
@@ -274,6 +275,7 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
         'false'        { TOKENV(BOOL, false); }
 
         '->'           { TOKEN(POINTER_PATH); }
+        '::'           { TOKEN(SYMBOL_RESOLUTION); }
 
         // Identifier
         @s [a-zA-Z_][a-zA-Z_0-9]* @e { TOKENV(IDENTIFIER, std::string(s, e - s)); }
