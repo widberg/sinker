@@ -14,7 +14,7 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-import re
+import re, subprocess, sys
 
 # -- Project information -----------------------------------------------------
 
@@ -45,6 +45,10 @@ extensions = [
     'breathe',
 ]
 
+breathe_projects = {
+	"sinker": "build/doxygen/xml/"
+}
+
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
@@ -71,3 +75,27 @@ html_static_path = ['_static']
 html_css_files = [
     'css/custom.css',
 ]
+
+
+def run_doxygen():
+    """Run the doxygen command"""
+
+    try:
+        retcode = subprocess.call('doxygen')
+        if retcode:
+            sys.stderr.write('doxygen terminated by signal %s' % retcode)
+            sys.exit(1)
+    except OSError as e:
+        sys.stderr.write('doxygen execution failed: %s' % e)
+        sys.exit(1)
+
+
+def builder_inited(app):
+    """Run the doxygen command"""
+    run_doxygen()
+
+
+def setup(app):
+
+    # Add hook for building doxygen when needed
+    app.connect("builder-inited", builder_inited)
