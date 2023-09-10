@@ -22,19 +22,6 @@ project = 'Sinker'
 copyright = '2023, widberg'
 author = 'widberg'
 
-version = None
-with open('../../CMakeLists.txt') as f:
-    for line in f.readlines():
-        m = re.match(r'^project\(sinker.+VERSION\s+(\S+).+\)$', line)
-        if m:
-            version = m.group(1)
-            break
-
-if not version:
-    raise RuntimeError('Could not find version in CMakeLists.txt')
-
-release = version
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
