@@ -41,10 +41,9 @@ release = version
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+	'sphinx.ext.autosectionlabel',
+    'breathe',
 ]
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -69,5 +68,6 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-def setup(app):
-    app.add_css_file('style.css')
+html_css_files = [
+    'css/custom.css',
+]
