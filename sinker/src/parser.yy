@@ -95,7 +95,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<identifier_set_t> identifier_set identifier_set_full
 
 %left '+' '-'
-%left '*'
+%left '*' '/' '%'
 %right INDIRECTION '@' '?' '!'
 %left '[' '{' "->"
 
@@ -122,6 +122,8 @@ expression
     | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new ParenthesesExpression($2));        }
     | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new AdditionExpression($1, $3));       }
     | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new MultiplicationExpression($1, $3)); }
+    | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new IntegerDivisionExpression($1, $3)); }
+    | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new ModuloExpression($1, $3)); }
     | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new SubtractionExpression($1, $3));    }
     | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }

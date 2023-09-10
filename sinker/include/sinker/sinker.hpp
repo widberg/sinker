@@ -299,6 +299,52 @@ namespace sinker
         std::shared_ptr<Expression> rhs;
     };
 
+    class IntegerDivisionExpression final : Expression
+    {
+    public:
+        IntegerDivisionExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
+            : lhs(lhs), rhs(rhs) {}
+        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        {
+            auto lhs_result = lhs->calculate(symbol);
+            auto rhs_result = rhs->calculate(symbol);
+            PROPAGATE_UNRESOLVED(lhs_result);
+            PROPAGATE_UNRESOLVED(rhs_result);
+            return lhs_result.value() / rhs_result.value();
+        }
+        virtual void dump(std::ostream &out) const override
+        {
+            out << *lhs << " / " << *rhs;
+        }
+
+    private:
+        std::shared_ptr<Expression> lhs;
+        std::shared_ptr<Expression> rhs;
+    };
+
+    class ModuloExpression final : Expression
+    {
+    public:
+        ModuloExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
+            : lhs(lhs), rhs(rhs) {}
+        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        {
+            auto lhs_result = lhs->calculate(symbol);
+            auto rhs_result = rhs->calculate(symbol);
+            PROPAGATE_UNRESOLVED(lhs_result);
+            PROPAGATE_UNRESOLVED(rhs_result);
+            return lhs_result.value() % rhs_result.value();
+        }
+        virtual void dump(std::ostream &out) const override
+        {
+            out << *lhs << " % " << *rhs;
+        }
+
+    private:
+        std::shared_ptr<Expression> lhs;
+        std::shared_ptr<Expression> rhs;
+    };
+
     class IndirectionExpression final : Expression
     {
     public:

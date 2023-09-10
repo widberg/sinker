@@ -123,7 +123,9 @@ Use `GetProcAddress` to find `lpProcName` in `module_name`. If found this evalua
 
 `expression + expression`  
 `expression - expression`  
-`expression * expression`
+`expression * expression`  
+`expression / expression` (Integer Division)  
+`expression % expression` (Modulo)  
 
 Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker DSL.
 
@@ -176,7 +178,7 @@ Adapted from [C Operator Precedence](https://en.cppreference.com/w/c/language/op
 |------------|----------|-------------|---------------|
 | 1 | {}<br />[]<br />-> | Pattern Match<br />Array Subscripting<br />Pointer Path | Left-to-right |
 | 2 | !<br />*<br />@<br />? | GetProcAddress<br />Indirection (dereference)<br />Relocate<br />Null Check | Right-to-left |
-| 3 | * | Multiplication | Left-to-right |
+| 3 | *<br />/<br />% | Multiplication<br />Integer Division<br />Modulo | Left-to-right |
 | 4 | +<br />- | Addition<br />Subtraction | Left-to-right |
 
 ## Sinker Compiler
