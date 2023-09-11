@@ -41,6 +41,11 @@ breathe_projects = {
 	"sinker": abspath("../build/doxygen/xml/")
 }
 
+for breathe_project in breathe_projects:
+    os.makedirs(breathe_projects[breathe_project], exist_ok=True)
+
+breathe_default_project = "sinker"
+
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
@@ -69,9 +74,8 @@ html_css_files = [
 ]
 
 
-def run_doxygen():
+def run_doxygen(app):
     """Run the doxygen command"""
-    os.makedirs(abspath("../build/doxygen"), exist_ok=True)
     try:
         retcode = subprocess.call('doxygen', cwd=abspath(".."))
         if retcode:
@@ -82,11 +86,6 @@ def run_doxygen():
         sys.exit(1)
 
 
-def builder_inited(app):
-    """Run the doxygen command"""
-    run_doxygen()
-
-
 def setup(app):
     # Add hook for building doxygen when needed
-    app.connect("builder-inited", builder_inited)
+    app.connect("builder-inited", run_doxygen)
