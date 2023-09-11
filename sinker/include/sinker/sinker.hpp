@@ -9,18 +9,14 @@
 #include <variant>
 #include <string>
 #include <string_view>
-#include <cassert>
 #include <optional>
 #include <ostream>
 #include <iostream>
 #include <iomanip>
 #include <memory>
-#include <Windows.h>
 #include <set>
-#include <cstring>
 #include <cstdint>
 #include <cstddef>
-#include <stdexcept>
 
 namespace sinker
 {
@@ -561,6 +557,8 @@ namespace sinker
     private:
         std::vector<pattern_byte> pattern;
     };
+
+#undef PROPAGATE_UNRESOLVED
 
     template<std::size_t S = 32, std::uint8_t C = 0xEF, bool D = true>
     class StackCheck {

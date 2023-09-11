@@ -1,8 +1,6 @@
 #ifndef SINKER_TPP
 #define SINKER_TPP
 
-#include <cstring>
-#include <stdexcept>
 namespace sinker
 {
     template <typename T>
