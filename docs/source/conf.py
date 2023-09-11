@@ -14,7 +14,12 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-import re, subprocess, sys
+import re, subprocess, sys, os
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+def abspath(relpath):
+    return os.path.abspath(os.path.join(script_dir, relpath))
 
 # -- Project information -----------------------------------------------------
 
@@ -33,7 +38,7 @@ extensions = [
 ]
 
 breathe_projects = {
-	"sinker": "build/doxygen/xml/"
+	"sinker": abspath("../build/doxygen/xml/")
 }
 
 # List of patterns, relative to source directory, that match files and
@@ -66,9 +71,9 @@ html_css_files = [
 
 def run_doxygen():
     """Run the doxygen command"""
-
+    os.makedirs(abspath("../build/doxygen"), exist_ok=True)
     try:
-        retcode = subprocess.call('doxygen')
+        retcode = subprocess.call('doxygen', cwd=abspath(".."))
         if retcode:
             sys.stderr.write('doxygen terminated by signal %s' % retcode)
             sys.exit(1)
@@ -83,6 +88,5 @@ def builder_inited(app):
 
 
 def setup(app):
-
     # Add hook for building doxygen when needed
     app.connect("builder-inited", builder_inited)
