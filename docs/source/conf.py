@@ -14,18 +14,20 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-import re, subprocess, sys, os
+import subprocess, sys, os
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 def abspath(relpath):
     return os.path.abspath(os.path.join(script_dir, relpath))
 
+
 # -- Project information -----------------------------------------------------
 
-project = 'Sinker'
-copyright = '2023, widberg'
-author = 'widberg'
+project = "Sinker"
+copyright = "2023, widberg"
+author = "widberg"
 
 # -- General configuration ---------------------------------------------------
 
@@ -33,12 +35,12 @@ author = 'widberg'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-	'sphinx.ext.autosectionlabel',
-    'breathe',
+    "sphinx.ext.autosectionlabel",
+    "breathe",
 ]
 
 breathe_projects = {
-	"sinker": abspath("../build/doxygen/xml/")
+    "sinker": abspath("../build/doxygen/xml/")
 }
 
 for breathe_project in breathe_projects:
@@ -57,32 +59,32 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 html_theme_options = {
-    'collapse_navigation': False,
-    'style_nav_header_background': '#1e5696'
+    "collapse_navigation": False,
+    "style_nav_header_background": "#1e5696",
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 html_css_files = [
-    'css/custom.css',
+    "css/custom.css",
 ]
 
 
 def run_doxygen(app):
     """Run the doxygen command"""
     try:
-        retcode = subprocess.call('doxygen', cwd=abspath(".."))
+        retcode = subprocess.call("doxygen", cwd=abspath(".."))
         if retcode:
-            sys.stderr.write('doxygen terminated by signal %s' % retcode)
+            sys.stderr.write("doxygen terminated by signal %s" % retcode)
             sys.exit(1)
     except OSError as e:
-        sys.stderr.write('doxygen execution failed: %s' % e)
+        sys.stderr.write("doxygen execution failed: %s" % e)
         sys.exit(1)
 
 
