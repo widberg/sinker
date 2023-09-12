@@ -8,3 +8,4 @@ Welcome to Sinker's documentation!
    sinkerdsl
    sinkercompiler
    sinkerruntimelibrary
+   cmakeintegration
