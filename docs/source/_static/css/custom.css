@@ -5,3 +5,8 @@
 .wy-side-nav-search input[type="text"] {
     border-color: transparent;
 }
+
+/* Line blocks in tables don't need so much extra space */
+td .line-block {
+    margin: 0 !important;
+}

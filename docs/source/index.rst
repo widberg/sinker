@@ -1,4 +1,10 @@
 Welcome to Sinker's documentation!
 ==================================
 
-.. doxygenindex::
+.. toctree::
+   :maxdepth: 2
+   :name: sec-sinker
+
+   sinkerdsl
+   sinkercompiler
+   sinkerruntimelibrary
