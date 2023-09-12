@@ -20,9 +20,11 @@ if(NOT TARGET hl++)
 endif()
 
 # re2c
-if(NOT TARGET re2c)
+if(SINKER_BUILD_GRAMMAR AND NOT TARGET re2c)
     add_subdirectory(re2c)
 endif()
 
 # bison
-find_package(BISON 3.4.1 REQUIRED)
+if(SINKER_BUILD_GRAMMAR)
+    find_package(BISON 3.4.1 REQUIRED)
+endif()

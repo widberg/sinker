@@ -11,11 +11,18 @@ The documentation is hosted on [Read the Docs](https://sinker.readthedocs.io/en/
 
 ## Getting Started
 
+Instructions on how to include Sinker in your CMake project can be found in the [CMake Integration](https://sinker.readthedocs.io/en/latest/cmakeintegration.html) section of the documentation. I recommend reading the rest of the documentation first to get a feel for how Sinker works.
+
+## Contributing
+
+Instructions on how to build and test the project.
+
 ### Prerequisites
 
 * Git
 * CMake
-* Bison or [WinFlexBison](https://github.com/lexxmark/winflexbison)
+* Bison or [WinFlexBison](https://github.com/lexxmark/winflexbison) (Optional<sup>†</sup>)
+†<sub>Only needed if editing the DSL grammar file.</sub>
 
 ### Checkout
 
@@ -23,14 +30,9 @@ The documentation is hosted on [Read the Docs](https://sinker.readthedocs.io/en/
 git clone https://github.com/widberg/sinker.git --recurse-submodules --shallow-submodules
 ```
 
-### Building On Windows
-
-Use the `x86/64 Native Tools Command Prompt for VS 2022` environment while generating and building the
-project.
-
-#### Ninja
+#### Build and Test
 
 ```sh
-cmake -B build -G Ninja
-cmake --build build
+cmake -B build -DSINKER_BUILD_TESTS=ON
+cmake --build build --target check-sinker
 ```

@@ -36,18 +36,16 @@ using namespace sinker;
 #pragma warning( disable : 4065 )
 #endif
 
-}//%code requires
-
-
-%code top
-{
-    
 struct LexerState
 {
     bool first_loop = true;
     bool in_pattern_match_expression = false;
+    const char *cur = nullptr;
+    const char *mar = nullptr;
+    const char *lim = nullptr;
+    Language mode = Language::SINKER;
 };
-}
+}//%code requires
 
 %code
 {
@@ -56,16 +54,7 @@ static sinker::location loc;
 
 #define TOKEN(name) do { return sinker::Parser::make_##name(loc); } while(0)
 #define TOKENV(name, ...) do { return sinker::Parser::make_##name(__VA_ARGS__, loc); } while(0)
-#define SINKER_ASSERT(cond, loc, msg) do { if (!cond) { sinker::Parser::error(loc, msg); YYERROR; } } while(0)
-
-static struct
-{
-    const char *cur;
-    const char *mar;
-    const char *lim;
-    Language mode = Language::SINKER;
-} in;
-
+#define VERIFY(cond, loc, msg) do { if (!cond) { sinker::Parser::error(loc, msg); YYERROR; } } while(0)
 }//%code
 
 %initial-action
@@ -133,18 +122,18 @@ expression
     | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new PointerPathExpression($1, $3));    }
     | '!' IDENTIFIER "::" IDENTIFIER
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
         $$ = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(ctx->get_module($2), $4));
     }
     | IDENTIFIER
     {
-        SINKER_ASSERT(ctx->get_module($1), @1, "Module does not exist");
+        VERIFY(ctx->get_module($1), @1, "Module does not exist");
         $$ = std::shared_ptr<Expression>((Expression*)new ModuleExpression(ctx->get_module($1)));
     }
     | IDENTIFIER "::" IDENTIFIER
     {
-        SINKER_ASSERT(ctx->get_module($1), @1, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($1)->get_symbol($3), @3, "Symbol does not exist");
+        VERIFY(ctx->get_module($1), @1, "Module does not exist");
+        VERIFY(ctx->get_module($1)->get_symbol($3), @3, "Symbol does not exist");
         $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module($1)->get_symbol($3)));
     }
     | '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_expression {lexer_state->in_pattern_match_expression = false;} '}'
@@ -156,6 +145,7 @@ expression
 string
     : STRING        { $$ = $1; }
     | string STRING { $$ = $1 + $2; }
+    ;
 
 attribute_value
     : INTEGER { $$ = attribute_value_t {$1}; }
@@ -176,52 +166,52 @@ identifier_set
 stmt
     : "module" IDENTIFIER ',' string ';'
     {
-        SINKER_ASSERT(!ctx->get_module($2), @2, "Module exists");
+        VERIFY(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, $4);
     }
     | "module" IDENTIFIER ';'
     {
-        SINKER_ASSERT(!ctx->get_module($2), @2, "Module exists");
+        VERIFY(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, {});
     }
     | "variant" IDENTIFIER ',' IDENTIFIER ',' string ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");
         ctx->get_module($2)->add_variant($4, $6);
     }
     | "symbol" IDENTIFIER "::" IDENTIFIER ',' string ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(!ctx->get_module($2)->get_symbol($4), @4, "Symbol exists");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(!ctx->get_module($2)->get_symbol($4), @4, "Symbol exists");
         ctx->get_module($2)->emplace_symbol($4, $6);
     }
     | "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
         ctx->get_module($2)->get_symbol($4)->add_address($7, $10);
     }
     | "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
         ctx->get_module($2)->set_attribute($4, $6);
     }
     | "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
         ctx->get_module($2)->get_symbol($4)->set_attribute($6, $8);
     }
     | "tag" IDENTIFIER ',' IDENTIFIER ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
         ctx->get_module($2)->add_tag($4);
     }
     | "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ';'
     {
-        SINKER_ASSERT(ctx->get_module($2), @2, "Module does not exist");
-        SINKER_ASSERT(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
+        VERIFY(ctx->get_module($2), @2, "Module does not exist");
+        VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
         ctx->get_module($2)->get_symbol($4)->add_tag($6);
     }
     ;
@@ -244,7 +234,7 @@ sinker::Parser::symbol_type parse_integer(const std::string& str, int base)
 
 sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
 {
-    if (lexer_state->first_loop && in.mode == Language::SOURCE_CODE) { lexer_state->first_loop = false; goto source; }
+    if (lexer_state->first_loop && lexer_state->mode == Language::SOURCE_CODE) { lexer_state->first_loop = false; goto source; }
     const char *s, *e;
     /*!stags:re2c format = 'const char *@@;\n'; */
     for (;;)
@@ -254,9 +244,9 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
         re2c:yyfill:enable  = 0;
         re2c:api:style = free-form;
         re2c:define:YYCTYPE = char;
-        re2c:define:YYCURSOR = in.cur;
-        re2c:define:YYMARKER = in.mar;
-        re2c:define:YYLIMIT = in.lim;
+        re2c:define:YYCURSOR = lexer_state->cur;
+        re2c:define:YYMARKER = lexer_state->mar;
+        re2c:define:YYLIMIT = lexer_state->lim;
         re2c:eof = 0;
         re2c:tags = 1;
         %}
@@ -292,13 +282,13 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
 
         // Whitespace
         $              { TOKEN(END_OF_FILE); }
-        "\r\n"|[\r\n]  { loc.lines(); loc.step(); if (in.mode == Language::SOURCE_CODE) goto source; continue; }
+        "\r\n"|[\r\n]  { loc.lines(); loc.step(); if (lexer_state->mode == Language::SOURCE_CODE) goto source; continue; }
         [ \t\v\b\f]    { loc.columns(); continue; }
 
         // Comment
         "//"[^\r\n]*   { continue; }
 
-        *              { return sinker::Parser::symbol_type (in.cur[-1], loc); }
+        *              { return sinker::Parser::symbol_type (lexer_state->cur[-1], loc); }
         %}
     pattern_match:
         %{
@@ -313,13 +303,13 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
 
         // Whitespace
         $              { TOKEN(END_OF_FILE); }
-        "\r\n"|[\r\n]  { loc.lines(); loc.step(); if (in.mode == Language::SOURCE_CODE) goto source; continue; }
+        "\r\n"|[\r\n]  { loc.lines(); loc.step(); if (lexer_state->mode == Language::SOURCE_CODE) goto source; continue; }
         [ \t\v\b\f]    { loc.columns(); continue; }
 
         // Comment
         "//"[^\r\n]*   { continue; }
 
-        *              { return sinker::Parser::symbol_type (in.cur[-1], loc); }
+        *              { return sinker::Parser::symbol_type (lexer_state->cur[-1], loc); }
         %}
     source:
         %{
@@ -340,15 +330,13 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
 bool Context::interpret(const char *input, unsigned int size, Language language, std::string input_filename, bool debug) {
         sinker::location::filename_type filename(input_filename);
 
-        // TODO: add this stuff to the lexer context
         loc = sinker::location(&filename);
 
-        in.cur = input;
-        in.mar = input;
-        in.lim = input + size;
-
-        in.mode = language;
         LexerState lexer_state;
+        lexer_state.cur = input;
+        lexer_state.mar = input;
+        lexer_state.lim = input + size;
+        lexer_state.mode = language;
         sinker::Parser parser(this, &lexer_state);
         if (debug) {
             parser.set_debug_level(1);
