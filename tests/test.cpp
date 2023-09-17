@@ -95,3 +95,30 @@ address xlive::ValidateMemory, [v3_5_95_0], @5191347;
 
     REQUIRE(output.str() == input);
 }
+
+TEST_CASE("DSL Pattern Match", "[dsl]") {
+    sinker::Context context;
+
+    std::string input = R"?(module fuel;
+variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35feeda856";
+symbol fuel::pGlobalCommandState, "const void**";
+address fuel::pGlobalCommandState, [retail], { DE AD BE EF };
+address fuel::pGlobalCommandState, [retail], { ?? ?D B? EF };
+address fuel::pGlobalCommandState, [retail], { DE AD BE EF : 00 0F F0 FF };
+)?";
+
+    std::string output = R"?(module fuel;
+variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35feeda856";
+symbol fuel::pGlobalCommandState, "const void**";
+address fuel::pGlobalCommandState, [retail], { DE AD BE EF : FF FF FF FF };
+address fuel::pGlobalCommandState, [retail], { 00 0D B0 EF : 00 0F F0 FF };
+address fuel::pGlobalCommandState, [retail], { DE AD BE EF : 00 0F F0 FF };
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+
+    std::stringstream out;
+    context.dump(out);
+
+    REQUIRE(out.str() == output);
+}

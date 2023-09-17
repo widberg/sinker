@@ -654,18 +654,17 @@ namespace sinker
             out << "{ ";
 
             std::ios_base::fmtflags f(out.flags());
-            out << std::hex << std::setfill('0') << std::setw(2);
 
             for (MaskedByte mb : needle)
             {
-                out << (unsigned int)mb.value << " ";
+                out << std::hex << std::setfill('0') << std::setw(2) << std::uppercase << (unsigned int)mb.value << " ";
             }
 
             out << ": ";
 
             for (MaskedByte mb : needle)
             {
-                out << (unsigned int)mb.mask << " ";
+                out << std::hex << std::setfill('0') << std::setw(2) << std::uppercase << (unsigned int)mb.mask << " ";
             }
 
             out.flags(f);

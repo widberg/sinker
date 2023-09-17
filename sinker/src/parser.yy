@@ -54,7 +54,7 @@ static sinker::location loc;
 
 #define TOKEN(name) do { return sinker::Parser::make_##name(loc); } while(0)
 #define TOKENV(name, ...) do { return sinker::Parser::make_##name(__VA_ARGS__, loc); } while(0)
-#define VERIFY(cond, loc, msg) do { if (!cond) { sinker::Parser::error(loc, msg); YYERROR; } } while(0)
+#define VERIFY(cond, loc, msg) do { if (!(cond)) { sinker::Parser::error(loc, msg); YYERROR; } } while(0)
 }//%code
 
 %initial-action
@@ -81,7 +81,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<std::shared_ptr<Expression>> expression
 %type<bool> BOOL
 %type<attribute_value_t> attribute_value
-%type<std::vector<MaskedByte>> pattern_match_expression
+%type<std::vector<MaskedByte>> pattern_match_body pattern_byte_list
 %type<identifier_set_t> identifier_set identifier_set_full
 
 %left '+' '-'
@@ -96,15 +96,6 @@ lexer_state->in_pattern_match_expression = false;
 slist
     : slist stmt
     | %empty
-    ;
-
-pattern_match_expression
-    : pattern_match_expression PATTERN_BYTE
-    {
-        $1.push_back($2);
-        $$ = $1;
-    }
-    | %empty { $$ = std::vector<MaskedByte>(); }
     ;
 
 expression
@@ -135,10 +126,33 @@ expression
         VERIFY(ctx->get_module($1)->get_symbol($3), @3, "Symbol does not exist");
         $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module($1)->get_symbol($3)));
     }
-    | '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_expression {lexer_state->in_pattern_match_expression = false;} '}'
+    | '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_body {lexer_state->in_pattern_match_expression = false;} '}'
     {
         $$ = std::shared_ptr<Expression>((Expression*)new PatternMatchExpression($3));
     }
+    ;
+
+pattern_match_body
+    : pattern_byte_list
+    | pattern_byte_list ':' pattern_byte_list
+    {
+        VERIFY($1.size() == $3.size(), @3, "Mask size does not match needle size");
+        $$ = $1;
+        for (unsigned int i = 0; i < $1.size(); i++) {
+            VERIFY($1[i].mask == 0xFF, @1, "If a mask is present, the needle must not contain wildcards");
+            VERIFY($3[i].mask == 0xFF, @3, "Masks must not contain wildcards");
+            $$[i].mask = $3[i].value;
+        }
+    }
+    ;
+
+pattern_byte_list
+    : pattern_byte_list PATTERN_BYTE
+    {
+        $1.push_back($2);
+        $$ = $1;
+    }
+    | %empty { $$ = std::vector<MaskedByte>(); }
     ;
 
 string
@@ -298,7 +312,18 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
             if (*p != 0) TOKEN(YYerror);
             TOKENV(PATTERN_BYTE, { (std::uint8_t)n, 0xFF });
         }
-        '}' { return sinker::Parser::symbol_type ('}', loc); }
+        @s [0-9a-fA-F] @e '?' {
+            char *p;
+            unsigned long long n = strtoull(std::string(s, e - s).c_str(), &p, 16) << 4;
+            if (*p != 0) TOKEN(YYerror);
+            TOKENV(PATTERN_BYTE, { (std::uint8_t)n, 0xF0 });
+        }
+        '?' @s [0-9a-fA-F] @e {
+            char *p;
+            unsigned long long n = strtoull(std::string(s, e - s).c_str(), &p, 16);
+            if (*p != 0) TOKEN(YYerror);
+            TOKENV(PATTERN_BYTE, { (std::uint8_t)n, 0x0F });
+        }
 
         // Whitespace
         $              { TOKEN(END_OF_FILE); }
