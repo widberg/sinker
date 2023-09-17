@@ -152,3 +152,15 @@ TEST_CASE("Runtime Pattern Match Mask", "[runtime]") {
 
     REQUIRE(result == data + 2);
 }
+
+TEST_CASE("Runtime CheckDereference", "[runtime]") {
+    sinker::Context context;
+
+    std::string input = R"?(module fuel;
+symbol fuel::pGlobalCommandState, "const void**";
+address fuel::pGlobalCommandState, [*], *0;
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    REQUIRE_FALSE(context.get_module("fuel")->get_symbol("pGlobalCommandState")->calculate_address<const void**>());
+}
