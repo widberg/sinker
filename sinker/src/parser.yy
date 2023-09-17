@@ -45,6 +45,11 @@ struct LexerState
     const char *lim = nullptr;
     Language mode = Language::SINKER;
 };
+
+struct PatternByteList : public std::vector<MaskedByte>
+{
+    std::optional<expression_value_t> offset;
+};
 }//%code requires
 
 %code
@@ -81,7 +86,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<std::shared_ptr<Expression>> expression
 %type<bool> BOOL
 %type<attribute_value_t> attribute_value
-%type<std::vector<MaskedByte>> pattern_match_body pattern_byte_list
+%type<PatternByteList> pattern_match_body pattern_byte_list
 %type<identifier_set_t> identifier_set identifier_set_full
 
 %left '+' '-'
@@ -128,7 +133,7 @@ expression
     }
     | '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_body {lexer_state->in_pattern_match_expression = false;} '}'
     {
-        $$ = std::shared_ptr<Expression>((Expression*)new PatternMatchExpression($3));
+        $$ = std::shared_ptr<Expression>((Expression*)new PatternMatchExpression($3, $3.offset.value_or(0)));
     }
     ;
 
@@ -137,12 +142,14 @@ pattern_match_body
     | pattern_byte_list ':' pattern_byte_list
     {
         VERIFY($1.size() == $3.size(), @3, "Mask size does not match needle size");
+        VERIFY(!$3.offset, @3, "Mask cannot have an offset");
         $$ = $1;
         for (unsigned int i = 0; i < $1.size(); i++) {
             VERIFY($1[i].mask == 0xFF, @1, "If a mask is present, the needle must not contain wildcards");
             VERIFY($3[i].mask == 0xFF, @3, "Masks must not contain wildcards");
             $$[i].mask = $3[i].value;
         }
+        $$.offset = $1.offset;
     }
     ;
 
@@ -152,7 +159,13 @@ pattern_byte_list
         $1.push_back($2);
         $$ = $1;
     }
-    | %empty { $$ = std::vector<MaskedByte>(); }
+    | pattern_byte_list '&'
+    {
+        VERIFY(!$1.offset, @2, "Offset cannot be set twice");
+        $1.offset = $1.size();
+        $$ = $1;
+    }
+    | %empty { $$ = PatternByteList(); }
     ;
 
 string

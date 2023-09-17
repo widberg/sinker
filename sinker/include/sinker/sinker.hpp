@@ -655,8 +655,13 @@ namespace sinker
 
             std::ios_base::fmtflags f(out.flags());
 
-            for (MaskedByte mb : needle)
+            for (std::size_t i = 0; i < needle.size(); ++i)
             {
+                if (i != 0 && offset == i)
+                {
+                    out << "&";
+                }
+                MaskedByte mb = needle[i];
                 out << std::hex << std::setfill('0') << std::setw(2) << std::uppercase << (unsigned int)mb.value << " ";
             }
 
