@@ -165,6 +165,13 @@ pattern_byte_list
         $1.offset = $1.size();
         $$ = $1;
     }
+    | pattern_byte_list STRING
+    {
+        for (char c : $2) {
+            $1.push_back({ (std::uint8_t)c, 0xFF });
+        }
+        $$ = $1;
+    }
     | %empty { $$ = PatternByteList(); }
     ;
 
@@ -337,6 +344,10 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
             if (*p != 0) TOKEN(YYerror);
             TOKENV(PATTERN_BYTE, { (std::uint8_t)n, 0x0F });
         }
+
+        // String
+        // \x22 == '\"' I couldn't figure out how to use double quotes without someone complaining
+        [\x22] @s [^\x22]* @e [\x22] { TOKENV(STRING, std::string(s, e - s)); }
 
         // Whitespace
         $              { TOKEN(END_OF_FILE); }

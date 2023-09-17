@@ -611,24 +611,56 @@ namespace sinker
     class PatternMatchNeedle final
     {
     public:
-        PatternMatchNeedle() {}
+        PatternMatchNeedle(std::vector<MaskedByte> const& needle) {
+            std::size_t i = 0;
+            while (i < needle.size())
+            {
+                if (needle[i].mask == 0xFF)
+                {
+                    std::size_t j = i + 1;
+                    while (j < needle.size() && needle[j].mask == 0xFF)
+                    {
+                        ++j;
+                    }
+
+                    std::vector<std::uint8_t> value;
+                    value.reserve(j - i);
+                    for (std::size_t k = i; k < j; ++k)
+                    {
+                        value.push_back(needle[k].value);
+                    }
+                    fragments.emplace_back((PatternMatchFragment*)new PatternMatchExact(value));
+                    i = j;
+                }
+                else if (needle[i].mask == 0x00)
+                {
+                    std::size_t j = i + 1;
+                    while (j < needle.size() && needle[j].mask == 0x00)
+                    {
+                        ++j;
+                    }
+                    fragments.emplace_back((PatternMatchFragment*)new PatternMatchWildcard(j - i));
+                    i = j;
+                }
+                else
+                {
+                    std::size_t j = i + 1;
+                    while (j < needle.size() && needle[j].mask != 0x00 && needle[j].mask != 0xFF)
+                    {
+                        ++j;
+                    }
+                    fragments.emplace_back((PatternMatchFragment*)new PatternMatchMask(std::vector<MaskedByte>(needle.begin() + i, needle.begin() + j)));
+                    i = j;
+                }
+            }
+        }
 
         void *search(void *begin, void *end) const
         {
             return end;
         }
-        
-        std::size_t size() const
-        {
-            std::size_t size = 0;
-            for (auto const& fragment : fragments)
-            {
-                size += fragment->size();
-            }
-            return size;
-        }
     private:
-        std::vector<std::unique_ptr<PatternMatchFragment>> fragments;
+        std::vector<std::unique_ptr<PatternMatchFragment>> fragments = {};
     };
 
     class PatternMatchExpression final : Expression
@@ -638,15 +670,15 @@ namespace sinker
             : needle(needle), offset(offset) {}
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
-            return {};
-            // void *begin = nullptr;
-            // void *end = nullptr;
-            // void *result = needle->search(begin, end);
-            // if (result == end)
-            // {
-            //     return {};
-            // }
-            // return (expression_value_t)result + offset;
+            PatternMatchNeedle pattern_match_needle(needle);
+            void *begin = nullptr;
+            void *end = nullptr;
+            void *result = pattern_match_needle.search(begin, end);
+            if (result == end)
+            {
+                return {};
+            }
+            return (expression_value_t)result + offset;
         }
 
         virtual void dump(std::ostream &out) const override

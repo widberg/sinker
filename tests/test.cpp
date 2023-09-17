@@ -104,7 +104,7 @@ variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35f
 symbol fuel::pGlobalCommandState, "const void**";
 address fuel::pGlobalCommandState, [retail], { DE AD BE EF };
 address fuel::pGlobalCommandState, [retail], { ?? ?D &B? EF };
-address fuel::pGlobalCommandState, [retail], { DE AD BE EF : 00 0F F0 FF };
+address fuel::pGlobalCommandState, [retail], { DE AD BE EF "test" : 00 0F F0 FF FF FF FF FF };
 )?";
 
     std::string output = R"?(module fuel;
@@ -112,7 +112,7 @@ variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35f
 symbol fuel::pGlobalCommandState, "const void**";
 address fuel::pGlobalCommandState, [retail], { DE AD BE EF : FF FF FF FF };
 address fuel::pGlobalCommandState, [retail], { 00 0D &B0 EF : 00 0F F0 FF };
-address fuel::pGlobalCommandState, [retail], { DE AD BE EF : 00 0F F0 FF };
+address fuel::pGlobalCommandState, [retail], { DE AD BE EF 74 65 73 74 : 00 0F F0 FF FF FF FF FF };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
