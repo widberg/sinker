@@ -131,13 +131,41 @@ Use ``GetProcAddress`` to find ``lpProcName`` in ``module_name``. If found this 
 Pattern Match
 ^^^^^^^^^^^^^
 
-``{ byte_pattern ... }``
+``{ [ filter : ] needle [ : mask ] }``
 
-| Searches for the first occurrence of the pattern in the module text segment and evaluates to the address of the first byte of the matched pattern. If no match is found, the pattern match evaluates to unresolved. A ``byte_pattern`` is described as follows:
-| ``XX`` where ``XX`` is a hexadecimal byte value with no prefix. The search byte must equal this value.
-| ``??`` the search byte may be equal to any value.
-| Arbitrarily masked matching may be added in the future.
-| Inspired by `Frida's JavaScript API's Memory.scan <https://frida.re/docs/javascript-api/#memory>`_.
+Inspired by |frida|_ which is in turn inspired by |radare2|_.
+
+..
+    https://stackoverflow.com/a/4836544/3997768
+
+.. |frida| replace:: Frida's JavaScript API's ``Memory.scan``
+.. _frida: https://frida.re/docs/javascript-api/#memory
+
+.. |radare2| replace:: Radare2's ``/x`` command
+.. _radare2: https://book.rada.re/search_bytes/intro.html
+
+Filter
+""""""
+
+Filters are optional. Potentially allow for filtering search by module, protection, section name, etc. This is not implemented yet.
+
+Needle
+""""""
+
+Searches for the first occurrence of the pattern in the module text segment and evaluates to the address of the first byte of the matched pattern. If no match is found, the pattern match evaluates to unresolved. A needle contains a series of the following:
+
+* ``XX`` a hexadecimal byte value with no prefix. The search byte must equal this value.
+* ``??`` the search byte may be equal to any value.
+* ``X?`` lower nibble wildcard, the high nibble of the search byte must equal the high nibble of this value.
+* ``?X`` upper nibble wildcard, the low nibble of the search byte must equal the low nibble of this value.
+* ``&`` the pattern match expression will evaluate to the address of byte following this if specified. Can only be used once. This can be used to match a whole jump instruction but evaluate as the address of the operand of the jump.
+
+Mask
+""""
+
+The mask is optional. The needle and mask must be the same length. Wildcards in the needle cannot be mixed with a mask.
+
+* ``XX`` a hexadecimal byte value with no prefix. The needle and haystack will be AND'd with this value.
 
 Operations
 ^^^^^^^^^^
@@ -165,7 +193,7 @@ Indirection (dereference)
 
 ``*expression``
 
-The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. System endianness will be used.
+The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. System endianness will be used. If dereferencing the expression causes an access violation, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``*0``; I'm not sure why you would want to do this, but hey I can't stop you.
 
 Array Subscripting
 """"""""""""""""""
@@ -189,13 +217,6 @@ Relocate
 
 This will subtract the symbol's module's preferred base address from the expression and then add the symbol's module's relocated base address to the expression.
 
-Null Check
-""""""""""
-
-``?expression``
-
-If the value of the expression is ``NULL`` then this evaluates to unresolved, otherwise, this evaluates to the resolved value of the expression. Note that this operator by itself does not dereference anything. This is a good way to stop evaluating an expression before dereferencing a null pointer when that is a possibility. From this definition of the Null Check operator, an easy way to raise an unresolved value arises, ``?0``; I'm not sure why you would want to do this, but hey I can't stop you.
-
 Operator Precedence
 """""""""""""""""""
 
@@ -210,7 +231,6 @@ Adapted from `C Operator Precedence <https://en.cppreference.com/w/c/language/op
 | 2          | | ``!``        | | GetProcAddress            | Right-to-left |
 |            | | ``*``        | | Indirection (dereference) |               |
 |            | | ``@``        | | Relocate                  |               |
-|            | | ``?``        | | Null Check                |               |
 +------------+----------------+-----------------------------+---------------+
 | 3          | | ``*``        | | Multiplication            | Left-to-right |
 |            | | ``/``        | | Integer Division          |               |
