@@ -122,3 +122,33 @@ address fuel::pGlobalCommandState, [retail], { DE AD BE EF 74 65 73 74 : 00 0F F
 
     REQUIRE(out.str() == output);
 }
+
+TEST_CASE("Runtime Pattern Match", "[runtime]") {
+    std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xAD, 0xBE, 0xEF, 0x73, 0x74 };
+
+    sinker::PatternMatchNeedle needle({ { 0xDE, 0xFF }, { 0xAD, 0xFF }, { 0xBE, 0xFF }, { 0xEF, 0xFF } });
+
+    void *result = needle.search(data, data + sizeof(data));
+
+    REQUIRE(result == data + 2);
+}
+
+TEST_CASE("Runtime Pattern Match Not Found", "[runtime]") {
+    std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xFF, 0xFF, 0xEF, 0x73, 0x74 };
+
+    sinker::PatternMatchNeedle needle({ { 0xDE, 0xFF }, { 0xAD, 0xF0 }, { 0xBE, 0x0F }, { 0xEF, 0xFF } });
+
+    void *result = needle.search(data, data + sizeof(data));
+
+    REQUIRE(result == data + sizeof(data));
+}
+
+TEST_CASE("Runtime Pattern Match Mask", "[runtime]") {
+    std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xAF, 0xFE, 0xEF, 0x73, 0x74 };
+
+    sinker::PatternMatchNeedle needle({ { 0xDE, 0xFF }, { 0xAD, 0xF0 }, { 0xBE, 0x0F }, { 0xEF, 0xFF } });
+
+    void *result = needle.search(data, data + sizeof(data));
+
+    REQUIRE(result == data + 2);
+}

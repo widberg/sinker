@@ -513,6 +513,14 @@ namespace sinker
         Symbol *symbol;
     };
 
+    enum class PatternMatchType
+    {
+        EXACT,
+        MASK,
+        WILDCARD,
+        COUNT,
+    };
+
     class PatternMatchFragment
     {
     public:
@@ -520,6 +528,7 @@ namespace sinker
         virtual void *search(void *begin, void *end) const = 0;
         virtual bool begins_with(void *begin, void *end) const = 0;
         virtual std::size_t size() const = 0;
+        virtual PatternMatchType type() const = 0;
     };
 
     class PatternMatchExact final : PatternMatchFragment
@@ -530,20 +539,78 @@ namespace sinker
         
         virtual void *search(void *begin, void *end) const override
         {
-            return std::search((char *)begin, (char *)end, value.cbegin(), value.cend());
+            if (end < begin)
+            {
+                return end;
+            }
+            
+            return std::search((std::uint8_t*)begin, (std::uint8_t*)end, value.cbegin(), value.cend());
         }
 
         virtual bool begins_with(void *begin, void *end) const override
         {
-            return std::equal((char *)begin, (char *)end, value.cbegin(), value.cend());
+            if (end < begin || (std::uint8_t*)begin + size() > end)
+            {
+                return end;
+            }
+            
+            return std::equal((std::uint8_t*)begin, (std::uint8_t*)begin + size(), value.cbegin(), value.cend());
         }
 
         virtual std::size_t size() const override
         {
             return value.size();
         }
+
+        virtual PatternMatchType type() const override
+        {
+            return PatternMatchType::EXACT;
+        }
     private:
         std::vector<std::uint8_t> value;
+    };
+
+    class PatternMatchMask final : PatternMatchFragment
+    {
+    public:
+        PatternMatchMask(std::vector<MaskedByte> const& value)
+            : value(value) {}
+
+        virtual void *search(void *begin, void *end) const override
+        {
+            if (end < begin)
+            {
+                return end;
+            }
+            
+            return std::search((std::uint8_t*)begin, (std::uint8_t*)end, value.cbegin(), value.cend(), [](std::uint8_t a, MaskedByte b) {
+                return (a & b.mask) == (b.value & b.mask);
+            });
+        }
+
+        virtual bool begins_with(void *begin, void *end) const override
+        {
+            if (end < begin || (std::uint8_t*)begin + size() > end)
+            {
+                return end;
+            }
+            
+            return std::equal((std::uint8_t*)begin, (std::uint8_t*)begin + size(), value.cbegin(), value.cend(), [](std::uint8_t a, MaskedByte b) {
+                return (a & b.mask) == (b.value & b.mask);
+            });
+        }
+
+        virtual std::size_t size() const override
+        {
+            return value.size();
+        }
+
+        virtual PatternMatchType type() const override
+        {
+            return PatternMatchType::MASK;
+        }
+    private:
+        std::vector<MaskedByte> value;
     };
 
     class PatternMatchWildcard final : PatternMatchFragment
@@ -554,6 +621,11 @@ namespace sinker
 
         virtual void *search(void *begin, void *end) const override
         {
+            if (end < begin)
+            {
+                return end;
+            }
+            
             if (s > (std::size_t)((char *)end - (char *)begin))
             {
                 return end;
@@ -564,6 +636,11 @@ namespace sinker
 
         virtual bool begins_with(void *begin, void *end) const override
         {
+            if (end < begin)
+            {
+                return end;
+            }
+
             if (s > (std::size_t)((char *)end - (char *)begin))
             {
                 return false;
@@ -576,36 +653,13 @@ namespace sinker
         {
             return s;
         }
+
+        virtual PatternMatchType type() const override
+        {
+            return PatternMatchType::WILDCARD;
+        }
     private:
         std::size_t s;
-    };
-
-    class PatternMatchMask final : PatternMatchFragment
-    {
-    public:
-        PatternMatchMask(std::vector<MaskedByte> const& value)
-            : value(value) {}
-
-        virtual void *search(void *begin, void *end) const override
-        {
-            return std::search((char *)begin, (char *)end, value.cbegin(), value.cend(), [](std::uint8_t a, MaskedByte b) {
-                return (a & b.mask) == (b.value & b.mask);
-            });
-        }
-
-        virtual bool begins_with(void *begin, void *end) const override
-        {
-            return std::equal((char *)begin, (char *)end, value.cbegin(), value.cend(), [](std::uint8_t a, MaskedByte b) {
-                return (a & b.mask) == (b.value & b.mask);
-            });
-        }
-
-        virtual std::size_t size() const override
-        {
-            return value.size();
-        }
-    private:
-        std::vector<MaskedByte> value;
     };
 
     class PatternMatchNeedle final
@@ -657,6 +711,77 @@ namespace sinker
 
         void *search(void *begin, void *end) const
         {
+            if (end < begin)
+            {
+                return end;
+            }
+
+            if (fragments.empty())
+            {
+                return begin;
+            }
+
+            // Keep track of the largest fragment from each type
+            struct SizeRecord {
+                std::size_t size;
+                std::size_t offset;
+                std::size_t index;
+            } sizes[(std::size_t)PatternMatchType::COUNT] = {};
+
+            // Find the largest fragment from each type
+            std::size_t total_size = 0;
+            for (std::size_t i = 0; i < fragments.size(); ++i)
+            {
+                auto& fragment = fragments[i];
+                if (fragment->size() > sizes[(std::size_t)fragment->type()].size)
+                {
+                    sizes[(std::size_t)fragment->type()].size = fragment->size();
+                    sizes[(std::size_t)fragment->type()].offset = total_size;
+                    sizes[(std::size_t)fragment->type()].index = i;
+
+                }
+                total_size += fragment->size();
+            }
+
+            // If the total size of the needle is larger than the search space, then we can't find a match
+            if (total_size > (std::size_t)((char *)end - (char *)begin))
+            {
+                return end;
+            }
+
+            // Find the highest priority fragment with the largest size
+            for (std::size_t i = 0; i < (std::size_t)PatternMatchType::COUNT; ++i)
+            {
+                if (sizes[i].size != 0)
+                {
+                    // Search for the fragment
+                    auto& fragment = fragments[sizes[i].index];
+                    void *result = fragment->search((char *)begin + sizes[i].offset, end);
+                    if (result == end)
+                    {
+                        return end;
+                    }
+
+                    // Now check that the other fragments match
+                    void *result_begin = (char *)result - sizes[i].offset;
+                    void *result_offset = result_begin;
+                    for (std::size_t j = 0; j < fragments.size(); ++j)
+                    {
+                        auto& fragment = fragments[j];
+                        if (j != sizes[i].index)
+                        {
+                            if (!fragment->begins_with(result_offset, end))
+                            {
+                                return end;
+                            }
+                        }
+                        result_offset = (char *)result_offset + fragment->size();
+                    }
+
+                    return result_begin;
+                }
+            }
+
             return end;
         }
     private:

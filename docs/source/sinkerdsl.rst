@@ -131,7 +131,12 @@ Use ``GetProcAddress`` to find ``lpProcName`` in ``module_name``. If found this 
 Pattern Match
 ^^^^^^^^^^^^^
 
-``{ [ filter : ] needle [ : mask ] }``
+| ``{ needle }``
+| ``{ needle : mask }``
+| ``{ filter : needle }``
+| ``{ filter : needle : mask }``
+| ``{ filter }``
+| ``{}``
 
 Inspired by |frida|_ which is in turn inspired by |radare2|_.
 
@@ -147,7 +152,10 @@ Inspired by |frida|_ which is in turn inspired by |radare2|_.
 Filter
 """"""
 
-Filters are optional. Potentially allow for filtering search by module, protection, section name, etc. This is not implemented yet.
+Filters are optional. Potentially allow for filtering search by module, protection, section name, etc. This is not implemented yet. If a filter is specified and no needle is specified, then the expression will evaluate to the first searched address matching the filter. This can be used to get the address of a module's text segment by filtering for it and not using a needle for example. Comma separated filters can be used to specify multiple filters, if any match then the region is searched. The following filters are supported:
+
+| ``module_name``
+| ``module_name::"section_name"``
 
 Needle
 """"""
