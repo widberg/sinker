@@ -2,7 +2,6 @@ add_executable(sinkerc
 		main.cpp
 )
 target_link_libraries(sinkerc sinker CLI11::CLI11)
-add_dependencies(sinkerc re2c)
 
 macro(add_sinker_target SINKER_TARGET)
 	set(options )
