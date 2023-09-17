@@ -77,11 +77,11 @@ lexer_state->in_pattern_match_expression = false;
 
 %type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
-%type<pattern_byte> PATTERN_BYTE
+%type<MaskedByte> PATTERN_BYTE
 %type<std::shared_ptr<Expression>> expression
 %type<bool> BOOL
 %type<attribute_value_t> attribute_value
-%type<std::vector<pattern_byte>> pattern_match_expression
+%type<std::vector<MaskedByte>> pattern_match_expression
 %type<identifier_set_t> identifier_set identifier_set_full
 
 %left '+' '-'
@@ -104,7 +104,7 @@ pattern_match_expression
         $1.push_back($2);
         $$ = $1;
     }
-    | %empty { $$ = std::vector<pattern_byte>(); }
+    | %empty { $$ = std::vector<MaskedByte>(); }
     ;
 
 expression
@@ -117,7 +117,6 @@ expression
     | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new ModuloExpression($1, $3)); }
     | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }
-    | '?' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new NullCheckExpression($2));          }
     | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new ArraySubscriptExpression($1, $3)); }
     | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new PointerPathExpression($1, $3));    }
     | '!' IDENTIFIER "::" IDENTIFIER

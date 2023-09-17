@@ -158,6 +158,7 @@ Searches for the first occurrence of the pattern in the module text segment and 
 * ``??`` the search byte may be equal to any value.
 * ``X?`` lower nibble wildcard, the high nibble of the search byte must equal the high nibble of this value.
 * ``?X`` upper nibble wildcard, the low nibble of the search byte must equal the low nibble of this value.
+* ``"string"`` a string literal. Insert the ASCII bytes of the string into the needle.
 * ``&`` the pattern match expression will evaluate to the address of byte following this if specified. Can only be used once. This can be used to match a whole jump instruction but evaluate as the address of the operand of the jump.
 
 Mask

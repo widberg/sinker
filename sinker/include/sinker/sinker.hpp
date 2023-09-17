@@ -17,6 +17,8 @@
 #include <set>
 #include <cstdint>
 #include <cstddef>
+#include <vector>
+#include <algorithm>
 
 namespace sinker
 {
@@ -33,7 +35,7 @@ namespace sinker
 
     std::ostream &operator<<(std::ostream &out, attribute_value_t const &attribute_value);
 
-    struct pattern_byte
+    struct MaskedByte
     {
         std::uint8_t value;
         std::uint8_t mask;
@@ -342,6 +344,15 @@ namespace sinker
         std::shared_ptr<Expression> rhs;
     };
 
+    inline std::optional<expression_value_t> CheckedDereference(expression_value_t value)
+    {
+        __try {
+            return (expression_value_t) *(void **)(value);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            return {};
+        }
+    }
+
     class IndirectionExpression final : Expression
     {
     public:
@@ -351,7 +362,7 @@ namespace sinker
         {
             auto expression_result = expression->calculate(symbol);
             PROPAGATE_UNRESOLVED(expression_result);
-            return (expression_value_t) * (void **)(expression_result.value());
+            return CheckedDereference(expression_result.value());
         }
         virtual void dump(std::ostream &out) const override
         {
@@ -386,31 +397,6 @@ namespace sinker
         std::shared_ptr<Expression> expression;
     };
 
-    class NullCheckExpression final : Expression
-    {
-    public:
-        NullCheckExpression(std::shared_ptr<Expression> expression)
-            : expression(expression) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto expression_result = expression->calculate(symbol);
-            PROPAGATE_UNRESOLVED(expression_result);
-            expression_value_t expression_value = expression_result.value();
-            if (expression_value)
-            {
-                return expression_value;
-            }
-            return {};
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << "?" << *expression;
-        }
-
-    private:
-        std::shared_ptr<Expression> expression;
-    };
-
     class ArraySubscriptExpression final : Expression
     {
     public:
@@ -422,7 +408,7 @@ namespace sinker
             auto offset_result = offset->calculate(symbol);
             PROPAGATE_UNRESOLVED(origin_result);
             PROPAGATE_UNRESOLVED(offset_result);
-            return (expression_value_t) * (void **)(origin_result.value() + offset_result.value() * sizeof(void *));
+            return CheckedDereference(origin_result.value() + offset_result.value() * sizeof(void *));
         }
         virtual void dump(std::ostream &out) const override
         {
@@ -445,7 +431,9 @@ namespace sinker
             auto rhs_result = rhs->calculate(symbol);
             PROPAGATE_UNRESOLVED(lhs_result);
             PROPAGATE_UNRESOLVED(rhs_result);
-            return (expression_value_t)*(void **)(lhs_result.value()) + rhs_result.value();
+            auto result = CheckedDereference(lhs_result.value());
+            PROPAGATE_UNRESOLVED(result);
+            return result.value() + rhs_result.value();
         }
         virtual void dump(std::ostream &out) const override
         {
@@ -525,37 +513,169 @@ namespace sinker
         Symbol *symbol;
     };
 
+    class PatternMatchFragment
+    {
+    public:
+        virtual ~PatternMatchFragment() {}
+        virtual void *search(void *begin, void *end) const = 0;
+        virtual bool begins_with(void *begin, void *end) const = 0;
+        virtual std::size_t size() const = 0;
+    };
+
+    class PatternMatchExact final : PatternMatchFragment
+    {
+    public:
+        PatternMatchExact(const std::vector<std::uint8_t>& value)
+            : value(value) {}
+        
+        virtual void *search(void *begin, void *end) const override
+        {
+            return std::search((char *)begin, (char *)end, value.cbegin(), value.cend());
+        }
+
+        virtual bool begins_with(void *begin, void *end) const override
+        {
+            return std::equal((char *)begin, (char *)end, value.cbegin(), value.cend());
+        }
+
+        virtual std::size_t size() const override
+        {
+            return value.size();
+        }
+    private:
+        std::vector<std::uint8_t> value;
+    };
+
+    class PatternMatchWildcard final : PatternMatchFragment
+    {
+    public:
+        PatternMatchWildcard(std::size_t size)
+            : s(size) {}
+
+        virtual void *search(void *begin, void *end) const override
+        {
+            if (s > (std::size_t)((char *)end - (char *)begin))
+            {
+                return end;
+            }
+
+            return begin;
+        }
+
+        virtual bool begins_with(void *begin, void *end) const override
+        {
+            if (s > (std::size_t)((char *)end - (char *)begin))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        virtual std::size_t size() const override
+        {
+            return s;
+        }
+    private:
+        std::size_t s;
+    };
+
+    class PatternMatchMask final : PatternMatchFragment
+    {
+    public:
+        PatternMatchMask(std::vector<MaskedByte> const& value)
+            : value(value) {}
+
+        virtual void *search(void *begin, void *end) const override
+        {
+            return std::search((char *)begin, (char *)end, value.cbegin(), value.cend(), [](std::uint8_t a, MaskedByte b) {
+                return (a & b.mask) == (b.value & b.mask);
+            });
+        }
+
+        virtual bool begins_with(void *begin, void *end) const override
+        {
+            return std::equal((char *)begin, (char *)end, value.cbegin(), value.cend(), [](std::uint8_t a, MaskedByte b) {
+                return (a & b.mask) == (b.value & b.mask);
+            });
+        }
+
+        virtual std::size_t size() const override
+        {
+            return value.size();
+        }
+    private:
+        std::vector<MaskedByte> value;
+    };
+
+    class PatternMatchNeedle final
+    {
+    public:
+        PatternMatchNeedle() {}
+
+        void *search(void *begin, void *end) const
+        {
+            return end;
+        }
+        
+        std::size_t size() const
+        {
+            std::size_t size = 0;
+            for (auto const& fragment : fragments)
+            {
+                size += fragment->size();
+            }
+            return size;
+        }
+    private:
+        std::vector<std::unique_ptr<PatternMatchFragment>> fragments;
+    };
+
     class PatternMatchExpression final : Expression
     {
     public:
-        PatternMatchExpression(std::vector<pattern_byte> const &pattern)
-            : pattern(pattern) {}
+        PatternMatchExpression(std::vector<MaskedByte> const& needle, expression_value_t offset = 0)
+            : needle(needle), offset(offset) {}
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
             return {};
+            // void *begin = nullptr;
+            // void *end = nullptr;
+            // void *result = needle->search(begin, end);
+            // if (result == end)
+            // {
+            //     return {};
+            // }
+            // return (expression_value_t)result + offset;
         }
+
         virtual void dump(std::ostream &out) const override
         {
             out << "{ ";
+
             std::ios_base::fmtflags f(out.flags());
-            for (pattern_byte pb : pattern)
+            out << std::hex << std::setfill('0') << std::setw(2);
+
+            for (MaskedByte mb : needle)
             {
-                if (pb.mask == 0xFF)
-                {
-                    out << std::hex << std::setfill('0') << std::setw(2) << (int)pb.value;
-                }
-                else
-                {
-                    out << "??";
-                }
-                out << " ";
+                out << (unsigned int)mb.value << " ";
             }
+
+            out << ": ";
+
+            for (MaskedByte mb : needle)
+            {
+                out << (unsigned int)mb.mask << " ";
+            }
+
             out.flags(f);
+
             out << "}";
         }
 
     private:
-        std::vector<pattern_byte> pattern;
+        std::vector<MaskedByte> needle;
+        expression_value_t offset;
     };
 
 #undef PROPAGATE_UNRESOLVED
