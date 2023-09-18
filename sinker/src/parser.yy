@@ -88,6 +88,8 @@ lexer_state->in_pattern_match_expression = false;
 %type<attribute_value_t> attribute_value
 %type<PatternByteList> pattern_match_body pattern_byte_list
 %type<identifier_set_t> identifier_set identifier_set_full
+%type<std::vector<PatternMatchFilter>> pattern_match_filter pattern_match_filter_list
+%type<PatternMatchFilter> pattern_match_filter_atom
 
 %left '+' '-'
 %left '*' '/' '%'
@@ -131,9 +133,42 @@ expression
         VERIFY(ctx->get_module($1)->get_symbol($3), @3, "Symbol does not exist");
         $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module($1)->get_symbol($3)));
     }
-    | '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_body {lexer_state->in_pattern_match_expression = false;} '}'
+    | pattern_match_filter '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_body {lexer_state->in_pattern_match_expression = false;} '}'
     {
-        $$ = std::shared_ptr<Expression>((Expression*)new PatternMatchExpression($3, $3.offset.value_or(0)));
+        $$ = std::shared_ptr<Expression>((Expression*)new PatternMatchExpression($4, $4.offset.value_or(0), $1));
+    }
+    ;
+
+pattern_match_filter
+    : %empty { $$ = {}; }
+    | '[' pattern_match_filter_list ']'
+    {
+        $$ = $2;
+    }
+    ;
+
+pattern_match_filter_list
+    : pattern_match_filter_atom
+    {
+        $$ = { $1 };
+    }
+    | pattern_match_filter_list ',' pattern_match_filter_atom
+    {
+        $$ = $1;
+        $$.push_back($3);
+    }
+    ;
+
+pattern_match_filter_atom
+    : IDENTIFIER
+    {
+        VERIFY(ctx->get_module($1), @1, "Module does not exist");
+        $$ = PatternMatchFilter(ctx->get_module($1));
+    }
+    | IDENTIFIER "::" string
+    {
+        VERIFY(ctx->get_module($1), @1, "Module does not exist");
+        $$ = PatternMatchFilter(ctx->get_module($1), $3);
     }
     ;
 
@@ -375,7 +410,7 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
     }
 }
 
-bool Context::interpret(const char *input, unsigned int size, Language language, std::string input_filename, bool debug) {
+bool Context::interpret(const char *input, std::size_t size, Language language, std::string input_filename, bool debug) {
         sinker::location::filename_type filename(input_filename);
 
         loc = sinker::location(&filename);
@@ -401,7 +436,7 @@ bool Context::interpret(std::istream& input_stream, Language language, std::stri
         if (!input_stream.read(buffer.data(), size)) return false;
         buffer.push_back('\0');
 
-        return interpret(buffer.data(), (unsigned int)size, language, input_filename, debug);
+        return interpret(buffer.data(), (std::size_t)size, language, input_filename, debug);
 }
 
 bool Context::interpret(const std::string& input, Language language, std::string input_filename, bool debug) {

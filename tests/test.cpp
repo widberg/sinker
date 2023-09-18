@@ -104,7 +104,7 @@ variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35f
 symbol fuel::pGlobalCommandState, "const void**";
 address fuel::pGlobalCommandState, [retail], { DE AD BE EF };
 address fuel::pGlobalCommandState, [retail], { ?? ?D &B? EF };
-address fuel::pGlobalCommandState, [retail], { DE AD BE EF "test" : 00 0F F0 FF FF FF FF FF };
+address fuel::pGlobalCommandState, [retail], [fuel::".text"]{ DE AD BE EF "test" : 00 0F F0 FF FF FF FF FF };
 )?";
 
     std::string output = R"?(module fuel;
@@ -112,7 +112,7 @@ variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35f
 symbol fuel::pGlobalCommandState, "const void**";
 address fuel::pGlobalCommandState, [retail], { DE AD BE EF : FF FF FF FF };
 address fuel::pGlobalCommandState, [retail], { 00 0D &B0 EF : 00 0F F0 FF };
-address fuel::pGlobalCommandState, [retail], { DE AD BE EF 74 65 73 74 : 00 0F F0 FF FF FF FF FF };
+address fuel::pGlobalCommandState, [retail], [fuel::".text"]{ DE AD BE EF 74 65 73 74 : 00 0F F0 FF FF FF FF FF };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
@@ -163,4 +163,22 @@ address fuel::pGlobalCommandState, [*], *0;
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
     REQUIRE_FALSE(context.get_module("fuel")->get_symbol("pGlobalCommandState")->calculate_address<const void**>());
+}
+
+TEST_CASE("Runtime Pattern Match Integration", "[runtime]") {
+    sinker::Context context;
+
+    static const char *data = "Houston, we have a problem.";
+
+    std::string input = R"?(module fuel;
+symbol fuel::pGlobalCommandState, "const char *";
+address fuel::pGlobalCommandState, [*], [fuel::".text"]{ "To be or not to be, that is the question." };
+address fuel::pGlobalCommandState, [*], { "Houston, " "we have a problem." };
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    REQUIRE(context.get_module("fuel")->concretize());
+    auto result = context.get_module("fuel")->get_symbol("pGlobalCommandState")->calculate_address<const char *>();
+    REQUIRE(result);
+    REQUIRE((char *)result.value() == data);
 }

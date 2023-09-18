@@ -33,6 +33,7 @@
 
 # Build
 /build
+/build_msvc
 
 # VsCode
 .vscode/

@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 namespace sinker
 {
@@ -87,7 +88,7 @@ namespace sinker
         void dump(std::ostream &out) const;
         void dump_def(std::ostream &out) const;
         bool interpret(std::istream &input_stream, Language language, std::string input_filename, bool debug = false);
-        bool interpret(const char *input, unsigned int size, Language language, std::string input_filename, bool debug = false);
+        bool interpret(const char *input, std::size_t size, Language language, std::string input_filename, bool debug = false);
         bool interpret(const std::string& input, Language language, std::string input_filename, bool debug = false);
         void add_module_tag(std::string const& tag);
         void add_symbol_tag(std::string const& tag);
@@ -527,6 +528,7 @@ namespace sinker
         virtual ~PatternMatchFragment() {}
         virtual void *search(void *begin, void *end) const = 0;
         virtual bool begins_with(void *begin, void *end) const = 0;
+        virtual bool collision(void *address) const = 0;
         virtual std::size_t size() const = 0;
         virtual PatternMatchType type() const = 0;
     };
@@ -565,6 +567,11 @@ namespace sinker
         virtual PatternMatchType type() const override
         {
             return PatternMatchType::EXACT;
+        }
+
+        virtual bool collision(void *address) const
+        {
+            return address >= value.data() && address < value.data() + value.size();
         }
     private:
         std::vector<std::uint8_t> value;
@@ -608,6 +615,11 @@ namespace sinker
         virtual PatternMatchType type() const override
         {
             return PatternMatchType::MASK;
+        }
+
+        virtual bool collision(void *address) const
+        {
+            return address >= value.data() && address < value.data() + value.size() * sizeof(MaskedByte);
         }
     private:
         std::vector<MaskedByte> value;
@@ -658,6 +670,11 @@ namespace sinker
         {
             return PatternMatchType::WILDCARD;
         }
+
+        virtual bool collision(void *address) const
+        {
+            return false;
+        }
     private:
         std::size_t s;
     };
@@ -665,7 +682,8 @@ namespace sinker
     class PatternMatchNeedle final
     {
     public:
-        PatternMatchNeedle(std::vector<MaskedByte> const& needle) {
+        PatternMatchNeedle(std::vector<MaskedByte> const& needle)
+            : size(needle.size()) {
             std::size_t i = 0;
             while (i < needle.size())
             {
@@ -707,19 +725,6 @@ namespace sinker
                     i = j;
                 }
             }
-        }
-
-        void *search(void *begin, void *end) const
-        {
-            if (end < begin)
-            {
-                return end;
-            }
-
-            if (fragments.empty())
-            {
-                return begin;
-            }
 
             // Keep track of the largest fragment from each type
             struct SizeRecord {
@@ -743,71 +748,211 @@ namespace sinker
                 total_size += fragment->size();
             }
 
-            // If the total size of the needle is larger than the search space, then we can't find a match
-            if (total_size > (std::size_t)((char *)end - (char *)begin))
-            {
-                return end;
-            }
-
             // Find the highest priority fragment with the largest size
             for (std::size_t i = 0; i < (std::size_t)PatternMatchType::COUNT; ++i)
             {
                 if (sizes[i].size != 0)
                 {
                     // Search for the fragment
-                    auto& fragment = fragments[sizes[i].index];
-                    void *result = fragment->search((char *)begin + sizes[i].offset, end);
-                    if (result == end)
+                    index = sizes[i].index;
+                    offset = sizes[i].offset;
+                    break;
+                }
+            }
+        }
+
+        void *search(void *begin, void *end) const
+        {
+            if (end < begin)
+            {
+                return end;
+            }
+
+            if (fragments.empty())
+            {
+                return begin;
+            }
+
+            // If the total size of the needle is larger than the search space, then we can't find a match
+            if (size > (std::size_t)((char *)end - (char *)begin))
+            {
+                return end;
+            }
+
+            auto& fragment = fragments[index];
+            void *result = fragment->search((char *)begin + offset, end);
+            if (result == end)
+            {
+                return end;
+            }
+
+            // Now check that the other fragments match
+            void *result_begin = (char *)result - offset;
+            void *result_offset = result_begin;
+            for (std::size_t j = 0; j < fragments.size(); ++j)
+            {
+                auto& fragment = fragments[j];
+                if (j != index)
+                {
+                    if (!fragment->begins_with(result_offset, end))
                     {
                         return end;
                     }
-
-                    // Now check that the other fragments match
-                    void *result_begin = (char *)result - sizes[i].offset;
-                    void *result_offset = result_begin;
-                    for (std::size_t j = 0; j < fragments.size(); ++j)
-                    {
-                        auto& fragment = fragments[j];
-                        if (j != sizes[i].index)
-                        {
-                            if (!fragment->begins_with(result_offset, end))
-                            {
-                                return end;
-                            }
-                        }
-                        result_offset = (char *)result_offset + fragment->size();
-                    }
-
-                    return result_begin;
                 }
+                result_offset = (char *)result_offset + fragment->size();
             }
 
-            return end;
+            return result_begin;
+        }
+
+        virtual bool collision(void *address) const
+        {
+            for (auto& fragment : fragments)
+            {
+                if (fragment->collision(address))
+                    return true;
+            }
+            return false;
         }
     private:
         std::vector<std::unique_ptr<PatternMatchFragment>> fragments = {};
+        std::size_t size = 0;
+        std::size_t offset = 0;
+        std::size_t index = 0;
+    };
+
+    class PatternMatchFilter final
+    {
+    public:
+        PatternMatchFilter(const Module *module = nullptr, std::optional<std::string> const& section_name = {})
+            : module(module), section_name(section_name) {}
+        
+        const Module *get_module() const
+        {
+            return module;
+        }
+
+        std::optional<std::string> const& get_section_name() const
+        {
+            return section_name;
+        }
+    private:
+        const Module *module;
+        std::optional<std::string> section_name;
     };
 
     class PatternMatchExpression final : Expression
     {
     public:
-        PatternMatchExpression(std::vector<MaskedByte> const& needle, expression_value_t offset = 0)
-            : needle(needle), offset(offset) {}
+        PatternMatchExpression(std::vector<MaskedByte> const& needle, expression_value_t offset = 0, std::vector<PatternMatchFilter> const& filters = {})
+            : filters(filters), needle(needle), offset(offset) {}
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
             PatternMatchNeedle pattern_match_needle(needle);
-            void *begin = nullptr;
-            void *end = nullptr;
-            void *result = pattern_match_needle.search(begin, end);
-            if (result == end)
+
+            if (filters.size())
             {
-                return {};
+                for (auto filter : filters)
+                {
+                    std::uint8_t *hModule = (std::uint8_t *)filter.get_module()->get_hModule();
+
+                    if (!hModule)
+                    {
+                        continue;
+                    }
+
+                    IMAGE_DOS_HEADER* pDOSHeader = (IMAGE_DOS_HEADER*)hModule;
+                    IMAGE_NT_HEADERS* pNTHeaders =(IMAGE_NT_HEADERS*)((BYTE*)pDOSHeader + pDOSHeader->e_lfanew);
+                    IMAGE_SECTION_HEADER *pSectionHdr = (IMAGE_SECTION_HEADER *) (pNTHeaders + 1);
+                    for ( int i = 0 ; i < pNTHeaders->FileHeader.NumberOfSections ; i++ )
+                    {
+                        char *name = (char*) pSectionHdr->Name;
+                        if (!filter.get_section_name() || name == *filter.get_section_name())
+                        {
+                            void *begin = hModule + pSectionHdr->VirtualAddress;
+                            void *end = hModule + pSectionHdr->VirtualAddress + pSectionHdr->Misc.VirtualSize;
+                            while (begin < end)
+                            {
+                                void *result = pattern_match_needle.search(begin, end);
+                                if (result != end && !pattern_match_needle.collision(result))
+                                {
+                                    return (expression_value_t)result + offset;
+                                }
+
+                                if (result == end)
+                                {
+                                    break;
+                                }
+
+                                begin = (char *)result + 1;
+                            }
+
+                            if (filter.get_section_name())
+                                break;
+                        }
+                        pSectionHdr++;
+                    }
+                }
+            } else {
+                std::uint8_t *cur_base_address = nullptr;
+
+                MEMORY_BASIC_INFORMATION mbi;
+
+                while (VirtualQuery (cur_base_address, &mbi, sizeof (mbi)))
+                {
+                    if (mbi.Protect != 0 && (mbi.Protect & PAGE_GUARD) == 0 && (mbi.Protect & PAGE_NOACCESS) == 0)
+                    {
+                        void *begin = cur_base_address;
+                        void *end = cur_base_address + mbi.RegionSize;
+                        void *result = pattern_match_needle.search(begin, end);
+                        while (begin < end)
+                        {
+                            void *result = pattern_match_needle.search(begin, end);
+                            if (result != end && !pattern_match_needle.collision(result))
+                            {
+                                return (expression_value_t)result + offset;
+                            }
+
+                            if (result == end)
+                            {
+                                break;
+                            }
+
+                            begin = (char *)result + 1;
+                        }
+                    }
+
+                    cur_base_address += mbi.RegionSize;
+                }
             }
-            return (expression_value_t)result + offset;
+
+            return {};
         }
 
         virtual void dump(std::ostream &out) const override
         {
+            if (filters.size())
+            {
+                out << "[";
+                
+                for (std::size_t i = 0; i < filters.size(); ++i)
+                {
+                    out << filters[i].get_module()->get_name();
+
+                    if (filters[i].get_section_name())
+                    {
+                        out << "::\"" << *filters[i].get_section_name() << "\"";
+                    }
+
+                    if (i != filters.size() - 1)
+                    {
+                        out << ", ";
+                    }
+                }
+                
+                out << "]";
+            }
+
             out << "{ ";
 
             std::ios_base::fmtflags f(out.flags());
@@ -835,6 +980,7 @@ namespace sinker
         }
 
     private:
+        std::vector<PatternMatchFilter> filters;
         std::vector<MaskedByte> needle;
         expression_value_t offset;
     };
