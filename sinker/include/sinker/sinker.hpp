@@ -230,119 +230,69 @@ namespace sinker
         expression_value_t value;
     };
 
-    class AdditionExpression final : Expression
+    enum class BinaryOperator
     {
-    public:
-        AdditionExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
-            : lhs(lhs), rhs(rhs) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto lhs_result = lhs->calculate(symbol);
-            auto rhs_result = rhs->calculate(symbol);
-            PROPAGATE_UNRESOLVED(lhs_result);
-            PROPAGATE_UNRESOLVED(rhs_result);
-            return lhs_result.value() + rhs_result.value();
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << *lhs << " + " << *rhs;
-        }
-
-    private:
-        std::shared_ptr<Expression> lhs;
-        std::shared_ptr<Expression> rhs;
+        ADDITION,
+        SUBTRACTION,
+        MULTIPLICATION,
+        INTEGER_DIVISION,
+        MODULO,
     };
 
-    class SubtractionExpression final : Expression
+    class BinaryOperatorExpression final : Expression
     {
     public:
-        SubtractionExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
-            : lhs(lhs), rhs(rhs) {}
+        BinaryOperatorExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs, BinaryOperator binary_operator)
+            : lhs(lhs), rhs(rhs), binary_operator(binary_operator) {}
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
             auto lhs_result = lhs->calculate(symbol);
             auto rhs_result = rhs->calculate(symbol);
             PROPAGATE_UNRESOLVED(lhs_result);
             PROPAGATE_UNRESOLVED(rhs_result);
-            return lhs_result.value() - rhs_result.value();
+
+            switch (binary_operator)
+            {
+            case BinaryOperator::ADDITION:
+                return lhs_result.value() + rhs_result.value();
+            case BinaryOperator::SUBTRACTION:
+                return lhs_result.value() - rhs_result.value();
+            case BinaryOperator::MULTIPLICATION:
+                return lhs_result.value() * rhs_result.value();
+            case BinaryOperator::INTEGER_DIVISION:
+                return lhs_result.value() / rhs_result.value();
+            case BinaryOperator::MODULO:
+                return lhs_result.value() % rhs_result.value();
+            }
+            return 0;
         }
+
         virtual void dump(std::ostream &out) const override
         {
-            out << *lhs << " - " << *rhs;
+            switch (binary_operator)
+            {
+            case BinaryOperator::ADDITION:
+                out << *lhs << " + " << *rhs;
+                break;
+            case BinaryOperator::SUBTRACTION:
+                out << *lhs << " - " << *rhs;
+                break;
+            case BinaryOperator::MULTIPLICATION:
+                out << *lhs << " * " << *rhs;
+                break;
+            case BinaryOperator::INTEGER_DIVISION:
+                out << *lhs << " / " << *rhs;
+                break;
+            case BinaryOperator::MODULO:
+                out << *lhs << " % " << *rhs;
+                break;
+            }
         }
 
     private:
         std::shared_ptr<Expression> lhs;
         std::shared_ptr<Expression> rhs;
-    };
-
-    class MultiplicationExpression final : Expression
-    {
-    public:
-        MultiplicationExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
-            : lhs(lhs), rhs(rhs) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto lhs_result = lhs->calculate(symbol);
-            auto rhs_result = rhs->calculate(symbol);
-            PROPAGATE_UNRESOLVED(lhs_result);
-            PROPAGATE_UNRESOLVED(rhs_result);
-            return lhs_result.value() * rhs_result.value();
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << *lhs << " * " << *rhs;
-        }
-
-    private:
-        std::shared_ptr<Expression> lhs;
-        std::shared_ptr<Expression> rhs;
-    };
-
-    class IntegerDivisionExpression final : Expression
-    {
-    public:
-        IntegerDivisionExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
-            : lhs(lhs), rhs(rhs) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto lhs_result = lhs->calculate(symbol);
-            auto rhs_result = rhs->calculate(symbol);
-            PROPAGATE_UNRESOLVED(lhs_result);
-            PROPAGATE_UNRESOLVED(rhs_result);
-            return lhs_result.value() / rhs_result.value();
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << *lhs << " / " << *rhs;
-        }
-
-    private:
-        std::shared_ptr<Expression> lhs;
-        std::shared_ptr<Expression> rhs;
-    };
-
-    class ModuloExpression final : Expression
-    {
-    public:
-        ModuloExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
-            : lhs(lhs), rhs(rhs) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto lhs_result = lhs->calculate(symbol);
-            auto rhs_result = rhs->calculate(symbol);
-            PROPAGATE_UNRESOLVED(lhs_result);
-            PROPAGATE_UNRESOLVED(rhs_result);
-            return lhs_result.value() % rhs_result.value();
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << *lhs << " % " << *rhs;
-        }
-
-    private:
-        std::shared_ptr<Expression> lhs;
-        std::shared_ptr<Expression> rhs;
+        BinaryOperator binary_operator;
     };
 
     inline std::optional<expression_value_t> CheckedDereference(expression_value_t value)

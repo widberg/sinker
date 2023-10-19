@@ -108,11 +108,11 @@ slist
 expression
     : INTEGER                          { $$ = std::shared_ptr<Expression>((Expression*)new IntegerExpression($1));            }
     | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new ParenthesesExpression($2));        }
-    | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new AdditionExpression($1, $3));       }
-    | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new SubtractionExpression($1, $3));    }
-    | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new MultiplicationExpression($1, $3)); }
-    | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new IntegerDivisionExpression($1, $3)); }
-    | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new ModuloExpression($1, $3)); }
+    | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ADDITION)); }
+    | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SUBTRACTION)); }
+    | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MULTIPLICATION)); }
+    | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::INTEGER_DIVISION)); }
+    | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MODULO)); }
     | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }
     | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new ArraySubscriptExpression($1, $3)); }
