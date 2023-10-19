@@ -4,7 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <sinker/sinker.hpp>
 
-TEST_CASE("DSL Empty Input", "[dsl]") {
+TEST_CASE("Script Empty Input", "[script]") {
     sinker::Context context;
 
     std::string input = "";
@@ -17,7 +17,7 @@ TEST_CASE("DSL Empty Input", "[dsl]") {
     REQUIRE(output.str() == input);
 }
 
-TEST_CASE("DSL FMTK Integration Test", "[dsl]") {
+TEST_CASE("Script FMTK Integration Test", "[script]") {
     sinker::Context context;
 
     std::string input =
@@ -96,7 +96,7 @@ address xlive::ValidateMemory, [v3_5_95_0], @5191347;
     REQUIRE(output.str() == input);
 }
 
-TEST_CASE("DSL Pattern Match", "[dsl]") {
+TEST_CASE("Script Pattern Match", "[script]") {
     sinker::Context context;
 
     std::string input = R"?(module fuel;

@@ -5,7 +5,7 @@ Welcome to Sinker's documentation!
    :maxdepth: 2
    :name: sec-sinker
 
-   sinkerdsl
+   sinkerscript
    sinkercompiler
    sinkerruntimelibrary
    cmakeintegration

@@ -1,7 +1,7 @@
-Sinker DSL
-==========
+Sinker Script
+=============
 
-Sinker DSL can be written out-of-line in a separate file with the ``.skr`` extension. It can also be written inline alongside source code in the same file where lines to be evaluated as Sinker DSL begin with ``//$``; the "$" is for the "S" in "Sinker", I'm too clever for my own good. Only whitespace is allowed before this token on a line, not unlike the C preprocessor. Any file with an extension other than ``.skr`` is assumed to be a source code file.
+Sinker Script can be written out-of-line in a separate file with the ``.skr`` extension. It can also be written inline alongside source code in the same file where lines to be evaluated as Sinker Script begin with ``//$``; the "$" is for the "S" in "Sinker", I'm too clever for my own good. Only whitespace is allowed before this token on a line, not unlike the C preprocessor. Any file with an extension other than ``.skr`` is assumed to be a source code file.
 
 Language Elements
 -----------------
@@ -9,12 +9,12 @@ Language Elements
 Directive
 ^^^^^^^^^
 
-Every Sinker DSL statement starts with a :ref:`directive <Directives>`.
+Every Sinker Script statement starts with a :ref:`directive <Directives>`.
 
 Identifier
 ^^^^^^^^^^
 
-An identifier is a token matching the Regex ``[a-zA-Z_$][a-zA-Z0-9_$]*`` that does not already have a meaning in Sinker DSL.
+An identifier is a token matching the Regex ``[a-zA-Z_$][a-zA-Z0-9_$]*`` that does not already have a meaning in Sinker Script.
 
 Identifier Set
 ^^^^^^^^^^^^^^
@@ -39,12 +39,12 @@ A boolean literal is either ``true`` or ``false``.
 Expression
 ^^^^^^^^^^
 
-An expression is written in the `Sinker DSL Expression Language`_.
+An expression is written in the `Sinker Script Expression Language`_.
 
 Comments
 ^^^^^^^^
 
-Any characters between the sequence ``//`` and the end of a line will be ignored in Sinker DSL.
+Any characters between the sequence ``//`` and the end of a line will be ignored in Sinker Script.
 
 Directives
 ----------
@@ -75,7 +75,7 @@ A symbol is a variant-agnostic representation of an address in a binary. A symbo
 Address
 ^^^^^^^
 
-An address provides instructions on how to calculate the address for a symbol based on its variant. These calculations are done using the `Sinker DSL Expression Language`_.
+An address provides instructions on how to calculate the address for a symbol based on its variant. These calculations are done using the `Sinker Script Expression Language`_.
 
 Address directives for each symbol are evaluated in the order they are declared. For each address directive where a ``variant_name`` in the set matches the current module's variant or the wildcard is used, the expression is evaluated. The first expression that is resolved will be the calculated address of the symbol. If all expressions are unresolved, the symbol is unresolved.
 
@@ -99,7 +99,7 @@ Modules or symbols can be grouped by arbitrary user-defined tags. These can be u
 | ``tag <module_name:identifier>, <tag_name:identifier>;``
 | ``tag <module_name:identifier>::<symbol_name:identifier>, <tag_name:identifier>;``
 
-Sinker DSL Expression Language
+Sinker Script Expression Language
 ------------------------------
 
 Any operation with an unresolved operand will evaluate as unresolved; or, in other words, if any part of an expression is unresolved then the whole expression is unresolved.
@@ -199,21 +199,30 @@ Mathematical Operations
 | ``expression / expression`` (Integer Division)
 | ``expression % expression`` (Modulo)
 
-Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker DSL.
+Bitwise Operations
+""""""""""""""""""
+
+| ``expression << expression`` (Left Shift)
+| ``expression >> expression`` (Right Shift)
+| ``expression & expression`` (Bitwise AND)
+| ``expression ^ expression`` (Bitwise XOR)
+| ``expression | expression`` (Bitwise OR)
+
+Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker Script.
 
 Indirection (dereference)
 """""""""""""""""""""""""
 
 ``*expression``
 
-The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. System endianness will be used. If dereferencing the expression causes an access violation, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``*0``; I'm not sure why you would want to do this, but hey I can't stop you.
+The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. Smaller or larger values can be dereferenced by using this and then masking out bytes using ``&`` or combining multiple dereferences using ``<<`` and ``|``. A more comprehensive type system may be added in the future. System endianness will be used. If dereferencing the expression causes an access violation, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``*0``; I'm not sure why you would want to do this, but hey I can't stop you.
 
 Array Subscripting
 """"""""""""""""""
 
 ``expression1[expression2]``
 
-Equivalent to ``*(expression1 + expression2 * sizeof(void*))`` where ``sizeof(void*)`` is the size, in bytes, of a pointer; note that ``sizeof(void*)`` is purely demonstrative of the behavior of the operation and not valid Sinker DSL.
+Equivalent to ``*(expression1 + expression2 * sizeof(void*))`` where ``sizeof(void*)`` is the size, in bytes, of a pointer; note that ``sizeof(void*)`` is purely demonstrative of the behavior of the operation and not valid Sinker Script.
 
 Pointer Path
 """"""""""""
