@@ -126,7 +126,8 @@ expression
     | expression '^' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_XOR)); }
     | expression "<<" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_LEFT)); }
     | expression ">>" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_RIGHT)); }
-    | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_NEGATE)); }
+
+    | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($1, UnaryOperator::BITWISE_NOT)); }
 
     | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }

@@ -207,6 +207,7 @@ Bitwise Operations
 | ``expression & expression`` (Bitwise AND)
 | ``expression ^ expression`` (Bitwise XOR)
 | ``expression | expression`` (Bitwise OR)
+| ``~expression`` (Bitwise NOT)
 
 Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker Script.
 
@@ -253,6 +254,7 @@ Adapted from `C Operator Precedence <https://en.cppreference.com/w/c/language/op
 | 2          | | ``!``        | | GetProcAddress            | Right-to-left |
 |            | | ``*``        | | Indirection (dereference) |               |
 |            | | ``@``        | | Relocate                  |               |
+|            | | ``~``        | | Bitwise NOT               |               |
 +------------+----------------+-----------------------------+---------------+
 | 3          | | ``*``        | | Multiplication            | Left-to-right |
 |            | | ``/``        | | Integer Division          |               |

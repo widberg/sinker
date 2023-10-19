@@ -230,6 +230,44 @@ namespace sinker
         expression_value_t value;
     };
 
+    enum class UnaryOperator
+    {
+        BITWISE_NOT,
+    };
+
+    class UnaryOperatorExpression final : Expression
+    {
+    public:
+        UnaryOperatorExpression(std::shared_ptr<Expression> expression, UnaryOperator unary_operator)
+            : expression(expression), unary_operator(unary_operator) {}
+        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        {
+            auto expression_result = expression->calculate(symbol);
+            PROPAGATE_UNRESOLVED(expression_result);
+
+            switch (unary_operator)
+            {
+            case UnaryOperator::BITWISE_NOT:
+                return ~expression_result.value();
+            }
+            return 0;
+        }
+
+        virtual void dump(std::ostream &out) const override
+        {
+            switch (unary_operator)
+            {
+            case UnaryOperator::BITWISE_NOT:
+                out << "~" << *expression;
+                break;
+            }
+        }
+
+    private:
+        std::shared_ptr<Expression> expression;
+        UnaryOperator unary_operator;
+    };
+
     enum class BinaryOperator
     {
         ADDITION,
