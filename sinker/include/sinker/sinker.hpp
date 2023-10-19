@@ -237,6 +237,12 @@ namespace sinker
         MULTIPLICATION,
         INTEGER_DIVISION,
         MODULO,
+        BITWISE_AND,
+        BITWISE_OR,
+        BITWISE_XOR,
+        BITWISE_SHIFT_LEFT,
+        BITWISE_SHIFT_RIGHT,
+        BITWISE_NEGATE,
     };
 
     class BinaryOperatorExpression final : Expression
@@ -263,6 +269,18 @@ namespace sinker
                 return lhs_result.value() / rhs_result.value();
             case BinaryOperator::MODULO:
                 return lhs_result.value() % rhs_result.value();
+            case BinaryOperator::BITWISE_AND:
+                return lhs_result.value() & rhs_result.value();
+            case BinaryOperator::BITWISE_OR:
+                return lhs_result.value() | rhs_result.value();
+            case BinaryOperator::BITWISE_XOR:
+                return lhs_result.value() ^ rhs_result.value();
+            case BinaryOperator::BITWISE_SHIFT_LEFT:
+                return lhs_result.value() << rhs_result.value();
+            case BinaryOperator::BITWISE_SHIFT_RIGHT:
+                return lhs_result.value() >> rhs_result.value();
+            case BinaryOperator::BITWISE_NEGATE:
+                return ~lhs_result.value();
             }
             return 0;
         }
@@ -285,6 +303,24 @@ namespace sinker
                 break;
             case BinaryOperator::MODULO:
                 out << *lhs << " % " << *rhs;
+                break;
+            case BinaryOperator::BITWISE_AND:
+                out << *lhs << " & " << *rhs;
+                break;
+            case BinaryOperator::BITWISE_OR:
+                out << *lhs << " | " << *rhs;
+                break;
+            case BinaryOperator::BITWISE_XOR:
+                out << *lhs << " ^ " << *rhs;
+                break;
+            case BinaryOperator::BITWISE_SHIFT_LEFT:
+                out << *lhs << " << " << *rhs;
+                break;
+            case BinaryOperator::BITWISE_SHIFT_RIGHT:
+                out << *lhs << " >> " << *rhs;
+                break;
+            case BinaryOperator::BITWISE_NEGATE:
+                out << "~" << *lhs;
                 break;
             }
         }

@@ -79,6 +79,8 @@ lexer_state->in_pattern_match_expression = false;
 %token TAG "tag"
 %token POINTER_PATH "->"
 %token SYMBOL_RESOLUTION "::"
+%token BITWISE_SHIFT_LEFT "<<"
+%token BITWISE_SHIFT_RIGHT ">>"
 
 %type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
@@ -91,9 +93,13 @@ lexer_state->in_pattern_match_expression = false;
 %type<std::vector<PatternMatchFilter>> pattern_match_filter pattern_match_filter_list
 %type<PatternMatchFilter> pattern_match_filter_atom
 
+%left '|'
+%left '^'
+%left '&'
+%left BITWISE_SHIFT_LEFT BITWISE_SHIFT_RIGHT
 %left '+' '-'
 %left '*' '/' '%'
-%right INDIRECTION '@' '?' '!'
+%right INDIRECTION '@' '?' '!' '~'
 %left '[' '{' "->"
 
 %start slist
@@ -108,11 +114,20 @@ slist
 expression
     : INTEGER                          { $$ = std::shared_ptr<Expression>((Expression*)new IntegerExpression($1));            }
     | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new ParenthesesExpression($2));        }
+
     | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ADDITION)); }
     | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SUBTRACTION)); }
     | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MULTIPLICATION)); }
     | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::INTEGER_DIVISION)); }
     | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MODULO)); }
+
+    | expression '&' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_AND)); }
+    | expression '|' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_OR)); }
+    | expression '^' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_XOR)); }
+    | expression "<<" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_LEFT)); }
+    | expression ">>" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_RIGHT)); }
+    | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_NEGATE)); }
+
     | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
     | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }
     | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new ArraySubscriptExpression($1, $3)); }
@@ -334,6 +349,8 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
 
         '->'           { TOKEN(POINTER_PATH); }
         '::'           { TOKEN(SYMBOL_RESOLUTION); }
+        '<<'           { TOKEN(BITWISE_SHIFT_LEFT); }
+        '>>'           { TOKEN(BITWISE_SHIFT_RIGHT); }
 
         // Identifier
         @s [a-zA-Z_][a-zA-Z_0-9]* @e { TOKENV(IDENTIFIER, std::string(s, e - s)); }
