@@ -3,6 +3,21 @@
 [![Build Status](https://github.com/widberg/sinker/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/widberg/sinker/actions/workflows/tests.yml)
 [![Documentation Status](https://readthedocs.org/projects/sinker/badge/?version=latest)](https://sinker.readthedocs.io/en/latest/?badge=latest)
 
+```cpp
+//$ symbol game::CoreMainLoop, "void (__stdcall *)()";
+//$ tag game::CoreMainLoop, hook;
+//$ address game::CoreMainLoop, [retail], @0x00688bf0;
+void __stdcall wrap_game_CoreMainLoop() {
+    BROADCAST(Tick);
+
+    // Do stuff before the real game::CoreMainLoop() is called.
+
+    real_game_CoreMainLoop();
+
+    // Do stuff after the real game::CoreMainLoop() is called.
+}
+```
+
 Instrument Windows binaries hook, line, and sinker at runtime with this batteries included hook specification and installation suite. [Sinker Script](https://sinker.readthedocs.io/en/latest/sinkerscript.html) is a simple domain-specific language for specifying addresses in a loaded module programmatically. The [Sinker Compiler](https://sinker.readthedocs.io/en/latest/sinkercompiler.html) makes it easy to amalgamate many Sinker Script files and produce `.def` headers for easy use of the Sinker Runtime Library from C++. The [Sinker Runtime Library](https://sinker.readthedocs.io/en/latest/sinkerruntimelibrary.html) installs the specified hooks into a module at runtime.
 
 ## Documentation
