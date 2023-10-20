@@ -113,7 +113,7 @@ slist
 
 expression
     : INTEGER                          { $$ = std::shared_ptr<Expression>((Expression*)new IntegerExpression($1));            }
-    | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new ParenthesesExpression($2));        }
+    | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::PARENTHESES));        }
 
     | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ADDITION)); }
     | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SUBTRACTION)); }
@@ -129,10 +129,10 @@ expression
 
     | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($1, UnaryOperator::BITWISE_NOT)); }
 
-    | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new IndirectionExpression($2));        }
-    | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new RelocateExpression($2));           }
-    | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new ArraySubscriptExpression($1, $3)); }
-    | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new PointerPathExpression($1, $3));    }
+    | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::INDIRECTION));        }
+    | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::RELOCATION));           }
+    | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ARRAY_SUBSCRIPT)); }
+    | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::POINTER_PATH));    }
     | '!' IDENTIFIER "::" IDENTIFIER
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");

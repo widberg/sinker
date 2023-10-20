@@ -192,26 +192,6 @@ namespace sinker
             return {};          \
     } while (0)
 
-    class ParenthesesExpression final : Expression
-    {
-    public:
-        ParenthesesExpression(std::shared_ptr<Expression> expression)
-            : expression(expression) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            return expression->calculate(symbol);
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << "(";
-            expression->dump(out);
-            out << ")";
-        }
-
-    private:
-        std::shared_ptr<Expression> expression;
-    };
-
     class IntegerExpression final : Expression
     {
     public:
@@ -230,8 +210,20 @@ namespace sinker
         expression_value_t value;
     };
 
+    inline std::optional<expression_value_t> CheckedDereference(expression_value_t value)
+    {
+        __try {
+            return (expression_value_t) *(void **)(value);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            return {};
+        }
+    }
+
     enum class UnaryOperator
     {
+        PARENTHESES,
+        INDIRECTION,
+        RELOCATION,
         BITWISE_NOT,
     };
 
@@ -247,6 +239,18 @@ namespace sinker
 
             switch (unary_operator)
             {
+            case UnaryOperator::PARENTHESES:
+                return expression_result.value();
+            case UnaryOperator::INDIRECTION:
+                return CheckedDereference(expression_result.value());
+            case UnaryOperator::RELOCATION:
+            {
+                auto preferred_base_address_result = symbol->get_module()->get_preferred_base_address();
+                PROPAGATE_UNRESOLVED(preferred_base_address_result);
+                auto relocated_base_address_result = symbol->get_module()->get_relocated_base_address();
+                PROPAGATE_UNRESOLVED(relocated_base_address_result);
+                return expression_result.value() - preferred_base_address_result.value() + relocated_base_address_result.value();
+            }
             case UnaryOperator::BITWISE_NOT:
                 return ~expression_result.value();
             }
@@ -257,6 +261,15 @@ namespace sinker
         {
             switch (unary_operator)
             {
+            case UnaryOperator::PARENTHESES:
+                out << "(" << *expression << ")";
+                break;
+            case UnaryOperator::INDIRECTION:
+                out << "*" << *expression;
+                break;
+            case UnaryOperator::RELOCATION:
+                out << "@" << *expression;
+                break;
             case UnaryOperator::BITWISE_NOT:
                 out << "~" << *expression;
                 break;
@@ -280,7 +293,8 @@ namespace sinker
         BITWISE_XOR,
         BITWISE_SHIFT_LEFT,
         BITWISE_SHIFT_RIGHT,
-        BITWISE_NEGATE,
+        ARRAY_SUBSCRIPT,
+        POINTER_PATH,
     };
 
     class BinaryOperatorExpression final : Expression
@@ -317,8 +331,14 @@ namespace sinker
                 return lhs_result.value() << rhs_result.value();
             case BinaryOperator::BITWISE_SHIFT_RIGHT:
                 return lhs_result.value() >> rhs_result.value();
-            case BinaryOperator::BITWISE_NEGATE:
-                return ~lhs_result.value();
+            case BinaryOperator::ARRAY_SUBSCRIPT:
+                return CheckedDereference(lhs_result.value() + rhs_result.value() * sizeof(void *));
+            case BinaryOperator::POINTER_PATH:
+            {
+                auto result = CheckedDereference(lhs_result.value());
+                PROPAGATE_UNRESOLVED(result);
+                return result.value() + rhs_result.value();
+            }
             }
             return 0;
         }
@@ -357,8 +377,11 @@ namespace sinker
             case BinaryOperator::BITWISE_SHIFT_RIGHT:
                 out << *lhs << " >> " << *rhs;
                 break;
-            case BinaryOperator::BITWISE_NEGATE:
-                out << "~" << *lhs;
+            case BinaryOperator::ARRAY_SUBSCRIPT:
+                out << *lhs << "[" << *rhs << "]";
+                break;
+            case BinaryOperator::POINTER_PATH:
+                out << *lhs << "->" << *rhs;
                 break;
             }
         }
@@ -367,107 +390,6 @@ namespace sinker
         std::shared_ptr<Expression> lhs;
         std::shared_ptr<Expression> rhs;
         BinaryOperator binary_operator;
-    };
-
-    inline std::optional<expression_value_t> CheckedDereference(expression_value_t value)
-    {
-        __try {
-            return (expression_value_t) *(void **)(value);
-        } __except (EXCEPTION_EXECUTE_HANDLER) {
-            return {};
-        }
-    }
-
-    class IndirectionExpression final : Expression
-    {
-    public:
-        IndirectionExpression(std::shared_ptr<Expression> expression)
-            : expression(expression) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto expression_result = expression->calculate(symbol);
-            PROPAGATE_UNRESOLVED(expression_result);
-            return CheckedDereference(expression_result.value());
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << "*" << *expression;
-        }
-
-    private:
-        std::shared_ptr<Expression> expression;
-    };
-
-    class RelocateExpression final : Expression
-    {
-    public:
-        RelocateExpression(std::shared_ptr<Expression> expression)
-            : expression(expression) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto expression_result = expression->calculate(symbol);
-            auto relocated_base_address_result = symbol->get_module()->get_relocated_base_address();
-            auto preferred_base_address_result = symbol->get_module()->get_preferred_base_address();
-            PROPAGATE_UNRESOLVED(expression_result);
-            PROPAGATE_UNRESOLVED(relocated_base_address_result);
-            PROPAGATE_UNRESOLVED(preferred_base_address_result);
-            return expression_result.value() - preferred_base_address_result.value() + relocated_base_address_result.value();
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << "@" << *expression;
-        }
-
-    private:
-        std::shared_ptr<Expression> expression;
-    };
-
-    class ArraySubscriptExpression final : Expression
-    {
-    public:
-        ArraySubscriptExpression(std::shared_ptr<Expression> origin, std::shared_ptr<Expression> offset)
-            : origin(origin), offset(offset) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto origin_result = origin->calculate(symbol);
-            auto offset_result = offset->calculate(symbol);
-            PROPAGATE_UNRESOLVED(origin_result);
-            PROPAGATE_UNRESOLVED(offset_result);
-            return CheckedDereference(origin_result.value() + offset_result.value() * sizeof(void *));
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << *origin << "[" << *offset << "]";
-        }
-
-    private:
-        std::shared_ptr<Expression> origin;
-        std::shared_ptr<Expression> offset;
-    };
-
-    class PointerPathExpression final : Expression
-    {
-    public:
-        PointerPathExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs)
-            : lhs(lhs), rhs(rhs) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
-        {
-            auto lhs_result = lhs->calculate(symbol);
-            auto rhs_result = rhs->calculate(symbol);
-            PROPAGATE_UNRESOLVED(lhs_result);
-            PROPAGATE_UNRESOLVED(rhs_result);
-            auto result = CheckedDereference(lhs_result.value());
-            PROPAGATE_UNRESOLVED(result);
-            return result.value() + rhs_result.value();
-        }
-        virtual void dump(std::ostream &out) const override
-        {
-            out << *lhs << "->" << *rhs;
-        }
-
-    private:
-        std::shared_ptr<Expression> lhs;
-        std::shared_ptr<Expression> rhs;
     };
 
     class GetProcAddressExpression final : Expression
