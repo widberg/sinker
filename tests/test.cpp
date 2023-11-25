@@ -173,12 +173,12 @@ TEST_CASE("Runtime Pattern Match Integration", "[runtime]") {
     std::string input = R"?(module fuel;
 symbol fuel::pGlobalCommandState, "const char *";
 address fuel::pGlobalCommandState, [*], [fuel::".text"]{ "To be or not to be, that is the question." };
-address fuel::pGlobalCommandState, [*], { "Houston, " "we have a problem." };
+address fuel::pGlobalCommandState, [*], { "Houston, " &"we have a problem." };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
     REQUIRE(context.get_module("fuel")->concretize());
     auto result = context.get_module("fuel")->get_symbol("pGlobalCommandState")->calculate_address<const char *>();
     REQUIRE(result);
-    REQUIRE((char *)result.value() == data);
+    REQUIRE((void *)result.value() == (void *)(data + 9));
 }

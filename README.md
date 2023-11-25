@@ -37,7 +37,7 @@ Instructions on how to build and test the project.
 * Git
 * CMake
 * Bison or [WinFlexBison](https://github.com/lexxmark/winflexbison) (Optional<sup>†</sup>)
-†<sub>Only needed if editing the Script grammar file.</sub>
+†<sub>Only needed if editing the Sinker Script grammar file.</sub>
 
 ### Checkout
 
