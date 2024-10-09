@@ -211,13 +211,13 @@ Bitwise Operations
 
 Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker Script.
 
-Short Circuit Operations
+Short-Circuit Operations
 """"""""""""""""""""""""
 
-| ``expression && expression`` (Short Circuit AND)
-| ``expression || expression`` (Short Circuit OR)
+| ``expression && expression`` (Short-Circuit AND)
+| ``expression || expression`` (Short-Circuit OR)
 
-The Short Circuit AND operator will be evaluated as the second expression if the first expression is resolved. The Short Circuit OR operator will be evaluated as the second expression if the first expression is unresolved.
+The Short-Circuit AND operator will be evaluated as the right-most expression if both expressions are resolved, or unresolved if either expression is unresolved. The Short-Circuit OR operator will be evaluated as the left-most resolved expression of the two, or unresolved if both expressions are unresolved. These operators behave more like the comma operator in C than the logical AND and OR operators, since the result is a Sinker value and not true or false, so they are not named logical boolean operators.
 
 Indirection (dereference)
 """""""""""""""""""""""""
@@ -280,7 +280,7 @@ Adapted from `C Operator Precedence <https://en.cppreference.com/w/c/language/op
 +------------+----------------+-----------------------------+---------------+
 | 8          | | ``|``        | | Bitwise OR                | Left-to-right |
 +------------+----------------+-----------------------------+---------------+
-| 9          | | ``&&``       | | Short Circuit AND         | Left-to-right |
+| 9          | | ``&&``       | | Short-Circuit AND         | Left-to-right |
 +------------+----------------+-----------------------------+---------------+
-| 10         | | ``||``       | | Short Circuit OR          | Left-to-right |
+| 10         | | ``||``       | | Short-Circuit OR          | Left-to-right |
 +------------+----------------+-----------------------------+---------------+
