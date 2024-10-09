@@ -430,7 +430,7 @@ namespace sinker
                 out << *lhs << " >> " << *rhs;
                 break;
             case BinaryOperator::ARRAY_SUBSCRIPT:
-                out << TypeToString(type) << *lhs << "[" << *rhs << "]";
+                out << TypeToString(type) << " " << *lhs << "[" << *rhs << "]";
                 break;
             case BinaryOperator::POINTER_PATH:
                 out << *lhs << "->" << *rhs;
