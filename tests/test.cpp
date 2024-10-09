@@ -182,3 +182,39 @@ address fuel::pGlobalCommandState, [*], { "Houston, " &"we have a problem." };
     REQUIRE(result);
     REQUIRE((void *)result.value() == (void *)(data + 9));
 }
+
+TEST_CASE("Runtime Short Circuit Operators", "[runtime]") {
+  sinker::Context context;
+
+  std::string input = R"?(module fuel;
+symbol fuel::ShortCircuitAndUnresolved, "void *";
+address fuel::ShortCircuitAndUnresolved, [*], *0 && 1;
+symbol fuel::ShortCircuitAndResolved, "void *";
+address fuel::ShortCircuitAndResolved, [*], 1 && 2;
+symbol fuel::ShortCircuitOrUnresolved, "void *";
+address fuel::ShortCircuitOrUnresolved, [*], *0 || *0;
+symbol fuel::ShortCircuitOrResolved, "void *";
+address fuel::ShortCircuitOrResolved, [*], *0 || 1;
+)?";
+
+  REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+  REQUIRE(context.get_module("fuel")->concretize());
+  auto result_au = context.get_module("fuel")
+                    ->get_symbol("ShortCircuitAndUnresolved")
+                    ->calculate_address<void *>();
+  REQUIRE(!result_au);
+  auto result_ar = context.get_module("fuel")
+                    ->get_symbol("ShortCircuitAndResolved")
+                    ->calculate_address<void *>();
+  REQUIRE(result_ar);
+  REQUIRE((void *)result_ar.value() == (void *)2);
+  auto result_ou = context.get_module("fuel")
+                    ->get_symbol("ShortCircuitOrUnresolved")
+                    ->calculate_address<void *>();
+  REQUIRE(!result_ou);
+  auto result_or = context.get_module("fuel")
+                    ->get_symbol("ShortCircuitOrResolved")
+                    ->calculate_address<void *>();
+  REQUIRE(result_or);
+  REQUIRE((void *)result_or.value() == (void *)1);
+}

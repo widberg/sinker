@@ -81,6 +81,8 @@ lexer_state->in_pattern_match_expression = false;
 %token SYMBOL_RESOLUTION "::"
 %token BITWISE_SHIFT_LEFT "<<"
 %token BITWISE_SHIFT_RIGHT ">>"
+%token SHORT_CIRCUIT_AND "&&"
+%token SHORT_CIRCUIT_OR "||"
 
 %type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
@@ -93,6 +95,8 @@ lexer_state->in_pattern_match_expression = false;
 %type<std::vector<PatternMatchFilter>> pattern_match_filter pattern_match_filter_list
 %type<PatternMatchFilter> pattern_match_filter_atom
 
+%left SHORT_CIRCUIT_OR
+%left SHORT_CIRCUIT_AND
 %left '|'
 %left '^'
 %left '&'
@@ -126,6 +130,8 @@ expression
     | expression '^' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_XOR)); }
     | expression "<<" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_LEFT)); }
     | expression ">>" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_RIGHT)); }
+    | expression SHORT_CIRCUIT_AND expression { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SHORT_CIRCUIT_AND)); }
+    | expression SHORT_CIRCUIT_OR expression  { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SHORT_CIRCUIT_OR)); }
 
     | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($1, UnaryOperator::BITWISE_NOT)); }
 
@@ -352,6 +358,8 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
         '::'           { TOKEN(SYMBOL_RESOLUTION); }
         '<<'           { TOKEN(BITWISE_SHIFT_LEFT); }
         '>>'           { TOKEN(BITWISE_SHIFT_RIGHT); }
+        '&&'           { TOKEN(SHORT_CIRCUIT_AND); }
+        '||'           { TOKEN(SHORT_CIRCUIT_OR); }
 
         // Identifier
         @s [a-zA-Z_][a-zA-Z_0-9]* @e { TOKENV(IDENTIFIER, std::string(s, e - s)); }

@@ -1,7 +1,7 @@
 Sinker Script
 =============
 
-Sinker Script can be written out-of-line in a separate file with the ``.skr`` extension. It can also be written inline alongside source code in the same file where lines to be evaluated as Sinker Script begin with ``//$``; the "$" is for the "S" in "Sinker", I'm too clever for my own good. Only whitespace is allowed before this token on a line, not unlike the C preprocessor. Any file with an extension other than ``.skr`` is assumed to be a source code file.
+Sinker Script can be written out-of-line in a separate file with the ``.skr`` extension. It can also be written inline alongside source code in the same file where lines to be evaluated as Sinker Script begin with ``//$``. Only whitespace is allowed before this token on a line, not unlike the C preprocessor. Any file with an extension other than ``.skr`` is assumed to be a source code file.
 
 Language Elements
 -----------------
@@ -211,12 +211,20 @@ Bitwise Operations
 
 Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker Script.
 
+Short Circuit Operations
+""""""""""""""""""""""""
+
+| ``expression && expression`` (Short Circuit AND)
+| ``expression || expression`` (Short Circuit OR)
+
+The Short Circuit AND operator will be evaluated as the second expression if the first expression is resolved. The Short Circuit OR operator will be evaluated as the second expression if the first expression is unresolved.
+
 Indirection (dereference)
 """""""""""""""""""""""""
 
 ``*expression``
 
-The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. Smaller or larger values can be dereferenced by using this and then masking out bytes using ``&`` or combining multiple dereferences using ``<<`` and ``|``. A more comprehensive type system may be added in the future. System endianness will be used. If dereferencing the expression causes an access violation, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``*0``; I'm not sure why you would want to do this, but hey I can't stop you.
+The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. Smaller or larger values can be dereferenced by using this and then masking out bytes using ``&`` or combining multiple dereferences using ``<<`` and ``|``. A more comprehensive type system may be added in the future. System endianness will be used. If dereferencing the expression causes an access violation, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``*0``, this is used in Sinker's tests.
 
 Array Subscripting
 """"""""""""""""""
@@ -271,4 +279,8 @@ Adapted from `C Operator Precedence <https://en.cppreference.com/w/c/language/op
 | 7          | | ``^``        | | Bitwise XOR               | Left-to-right |
 +------------+----------------+-----------------------------+---------------+
 | 8          | | ``|``        | | Bitwise OR                | Left-to-right |
++------------+----------------+-----------------------------+---------------+
+| 9          | | ``&&``       | | Short Circuit AND         | Left-to-right |
++------------+----------------+-----------------------------+---------------+
+| 10         | | ``||``       | | Short Circuit OR          | Left-to-right |
 +------------+----------------+-----------------------------+---------------+

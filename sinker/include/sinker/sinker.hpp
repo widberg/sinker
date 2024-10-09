@@ -20,6 +20,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <cassert>
 
 namespace sinker
 {
@@ -254,7 +255,8 @@ namespace sinker
             case UnaryOperator::BITWISE_NOT:
                 return ~expression_result.value();
             }
-            return 0;
+            assert(!"Unreachable");
+            return {};
         }
 
         virtual void dump(std::ostream &out) const override
@@ -295,6 +297,8 @@ namespace sinker
         BITWISE_SHIFT_RIGHT,
         ARRAY_SUBSCRIPT,
         POINTER_PATH,
+        SHORT_CIRCUIT_AND,
+        SHORT_CIRCUIT_OR,
     };
 
     class BinaryOperatorExpression final : Expression
@@ -305,8 +309,31 @@ namespace sinker
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
             auto lhs_result = lhs->calculate(symbol);
+
+            if (binary_operator == BinaryOperator::SHORT_CIRCUIT_OR)
+            {
+                if (lhs_result)
+                {
+                    return lhs_result;
+                }
+            }
+
             auto rhs_result = rhs->calculate(symbol);
+
+            if (binary_operator == BinaryOperator::SHORT_CIRCUIT_OR) {
+                if (rhs_result)
+                {
+                    return rhs_result;
+                }
+            }
+
             PROPAGATE_UNRESOLVED(lhs_result);
+
+            if (binary_operator == BinaryOperator::SHORT_CIRCUIT_AND)
+            {
+                return rhs_result;
+            }
+
             PROPAGATE_UNRESOLVED(rhs_result);
 
             switch (binary_operator)
@@ -339,8 +366,13 @@ namespace sinker
                 PROPAGATE_UNRESOLVED(result);
                 return result.value() + rhs_result.value();
             }
+            case BinaryOperator::SHORT_CIRCUIT_AND:
+            case BinaryOperator::SHORT_CIRCUIT_OR:
+                // Handled above
+                break;
             }
-            return 0;
+            assert(!"Unreachable");
+            return {};
         }
 
         virtual void dump(std::ostream &out) const override
@@ -382,6 +414,12 @@ namespace sinker
                 break;
             case BinaryOperator::POINTER_PATH:
                 out << *lhs << "->" << *rhs;
+                break;
+            case BinaryOperator::SHORT_CIRCUIT_AND:
+                out << *lhs << " && " << *rhs;
+                break;
+            case BinaryOperator::SHORT_CIRCUIT_OR:
+                out << *lhs << " || " << *rhs;
                 break;
             }
         }
