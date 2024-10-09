@@ -211,14 +211,7 @@ namespace sinker
         expression_value_t value;
     };
 
-    inline std::optional<expression_value_t> CheckedDereference(expression_value_t value)
-    {
-        __try {
-            return (expression_value_t) *(void **)(value);
-        } __except (EXCEPTION_EXECUTE_HANDLER) {
-            return {};
-        }
-    }
+    std::optional<expression_value_t> CheckedDereference(expression_value_t value);
 
     enum class UnaryOperator
     {

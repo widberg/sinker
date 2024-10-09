@@ -9,6 +9,10 @@ target_include_directories(sinker PUBLIC include)
 target_link_libraries(sinker hl++ detours)
 target_link_options(sinker INTERFACE /export:DetourFinishHelperProcess,@1,NONAME)
 
+if(SINKER_USE_SEH)
+    target_compile_definitions(sinker PRIVATE SINKER_USE_SEH)
+endif()
+
 if(SINKER_BUILD_GRAMMAR)
 	add_custom_command(
 		OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/parser.cpp

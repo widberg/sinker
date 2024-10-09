@@ -10,6 +10,29 @@
 
 namespace sinker
 {
+    std::optional<expression_value_t> CheckedDereference(expression_value_t value)
+    {
+#ifdef SINKER_USE_SEH
+        __try {
+            return (expression_value_t) *(void **)(value);
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            return {};
+        }
+#else
+        MEMORY_BASIC_INFORMATION mbi;
+
+        if (VirtualQuery((LPCVOID)value, &mbi, sizeof(mbi)) == 0) {
+            return {};
+        }
+
+        if ((mbi.State == MEM_COMMIT) && (mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))) {
+            return (expression_value_t) * (void **)(value);
+        }
+
+        return {};
+#endif
+    }
+
     std::ostream &operator<<(std::ostream &out, attribute_value_t const &attribute_value) {
             if (std::holds_alternative<expression_value_t>(attribute_value))
             {
