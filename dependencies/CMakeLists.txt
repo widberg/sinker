@@ -20,8 +20,8 @@ if(NOT TARGET hl++)
 endif()
 
 # re2c
-if(SINKER_BUILD_GRAMMAR AND NOT TARGET re2c)
-    add_subdirectory(re2c)
+if(SINKER_BUILD_GRAMMAR)
+    find_program(RE2C_EXECUTABLE re2c)
 endif()
 
 # bison

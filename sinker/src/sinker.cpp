@@ -41,7 +41,7 @@ namespace sinker
         switch (type)
         {
         case Type::None:
-            return "None";
+            return "none";
         case Type::U8:
             return "u8";
         case Type::U16:
