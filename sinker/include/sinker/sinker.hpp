@@ -211,7 +211,24 @@ namespace sinker
         expression_value_t value;
     };
 
-    std::optional<expression_value_t> CheckedDereference(expression_value_t value);
+    enum class Type
+    {
+        None,
+        U8,
+        U16,
+        U32,
+        U64,
+        I8,
+        I16,
+        I32,
+        I64,
+        PTR,
+    };
+
+    std::size_t SizeOfType(Type type);
+    const char *TypeToString(Type type);
+
+    std::optional<expression_value_t> CheckedDereference(expression_value_t value, Type type);
 
     enum class UnaryOperator
     {
@@ -219,15 +236,21 @@ namespace sinker
         INDIRECTION,
         RELOCATION,
         BITWISE_NOT,
+        SIZEOF,
     };
 
     class UnaryOperatorExpression final : Expression
     {
     public:
-        UnaryOperatorExpression(std::shared_ptr<Expression> expression, UnaryOperator unary_operator)
-            : expression(expression), unary_operator(unary_operator) {}
+        UnaryOperatorExpression(std::shared_ptr<Expression> expression, UnaryOperator unary_operator, Type type)
+            : expression(expression), unary_operator(unary_operator), type(type) {}
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
+            if (unary_operator == UnaryOperator::SIZEOF)
+            {
+                return (expression_value_t)SizeOfType(type);
+            }
+
             auto expression_result = expression->calculate(symbol);
             PROPAGATE_UNRESOLVED(expression_result);
 
@@ -236,7 +259,7 @@ namespace sinker
             case UnaryOperator::PARENTHESES:
                 return expression_result.value();
             case UnaryOperator::INDIRECTION:
-                return CheckedDereference(expression_result.value());
+                return CheckedDereference(expression_result.value(), type);
             case UnaryOperator::RELOCATION:
             {
                 auto preferred_base_address_result = symbol->get_module()->get_preferred_base_address();
@@ -247,6 +270,9 @@ namespace sinker
             }
             case UnaryOperator::BITWISE_NOT:
                 return ~expression_result.value();
+            case UnaryOperator::SIZEOF:
+                // Handled above
+                break;
             }
             assert(!"Unreachable");
             return {};
@@ -260,7 +286,7 @@ namespace sinker
                 out << "(" << *expression << ")";
                 break;
             case UnaryOperator::INDIRECTION:
-                out << "*" << *expression;
+                out << TypeToString(type) << "*" << *expression;
                 break;
             case UnaryOperator::RELOCATION:
                 out << "@" << *expression;
@@ -274,6 +300,7 @@ namespace sinker
     private:
         std::shared_ptr<Expression> expression;
         UnaryOperator unary_operator;
+        Type type;
     };
 
     enum class BinaryOperator
@@ -297,8 +324,8 @@ namespace sinker
     class BinaryOperatorExpression final : Expression
     {
     public:
-        BinaryOperatorExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs, BinaryOperator binary_operator)
-            : lhs(lhs), rhs(rhs), binary_operator(binary_operator) {}
+        BinaryOperatorExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs, BinaryOperator binary_operator, Type type)
+            : lhs(lhs), rhs(rhs), binary_operator(binary_operator), type(type) {}
         virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
         {
             auto lhs_result = lhs->calculate(symbol);
@@ -352,10 +379,10 @@ namespace sinker
             case BinaryOperator::BITWISE_SHIFT_RIGHT:
                 return lhs_result.value() >> rhs_result.value();
             case BinaryOperator::ARRAY_SUBSCRIPT:
-                return CheckedDereference(lhs_result.value() + rhs_result.value() * sizeof(void *));
+                return CheckedDereference(lhs_result.value() + rhs_result.value() * SizeOfType(type), type);
             case BinaryOperator::POINTER_PATH:
             {
-                auto result = CheckedDereference(lhs_result.value());
+                auto result = CheckedDereference(lhs_result.value(), Type::PTR);
                 PROPAGATE_UNRESOLVED(result);
                 return result.value() + rhs_result.value();
             }
@@ -403,7 +430,7 @@ namespace sinker
                 out << *lhs << " >> " << *rhs;
                 break;
             case BinaryOperator::ARRAY_SUBSCRIPT:
-                out << *lhs << "[" << *rhs << "]";
+                out << TypeToString(type) << *lhs << "[" << *rhs << "]";
                 break;
             case BinaryOperator::POINTER_PATH:
                 out << *lhs << "->" << *rhs;
@@ -421,6 +448,7 @@ namespace sinker
         std::shared_ptr<Expression> lhs;
         std::shared_ptr<Expression> rhs;
         BinaryOperator binary_operator;
+        Type type;
     };
 
     class GetProcAddressExpression final : Expression

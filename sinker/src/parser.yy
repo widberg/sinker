@@ -31,9 +31,10 @@
 #include <sinker/sinker.hpp>
 using namespace sinker;
 
-// Bison generates weird switch statements
+// Bison generates warnings on MSVC
 #ifdef _MSC_VER
 #pragma warning( disable : 4065 )
+#pragma warning( disable : 4244 )
 #endif
 
 struct LexerState
@@ -70,13 +71,14 @@ lexer_state->in_pattern_match_expression = false;
 
 %token END_OF_FILE 0
 
-%token IDENTIFIER INTEGER STRING BOOL PATTERN_BYTE
+%token IDENTIFIER INTEGER STRING BOOL PATTERN_BYTE TYPE
 %token MODULE "module"
 %token VARIANT "variant"
 %token SYMBOL "symbol"
 %token ADDRESS "address"
 %token SET "set"
 %token TAG "tag"
+%token SIZEOF "sizeof"
 %token POINTER_PATH "->"
 %token SYMBOL_RESOLUTION "::"
 %token BITWISE_SHIFT_LEFT "<<"
@@ -87,6 +89,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
 %type<MaskedByte> PATTERN_BYTE
+%type<Type> TYPE type
 %type<std::shared_ptr<Expression>> expression
 %type<bool> BOOL
 %type<attribute_value_t> attribute_value
@@ -95,15 +98,15 @@ lexer_state->in_pattern_match_expression = false;
 %type<std::vector<PatternMatchFilter>> pattern_match_filter pattern_match_filter_list
 %type<PatternMatchFilter> pattern_match_filter_atom
 
-%left SHORT_CIRCUIT_OR
-%left SHORT_CIRCUIT_AND
+%left "||"
+%left "&&"
 %left '|'
 %left '^'
 %left '&'
-%left BITWISE_SHIFT_LEFT BITWISE_SHIFT_RIGHT
+%left "<<" ">>"
 %left '+' '-'
 %left '*' '/' '%'
-%right INDIRECTION '@' '?' '!' '~'
+%right INDIRECTION '@' '!' '~' "sizeof"
 %left '[' '{' "->"
 
 %start slist
@@ -115,30 +118,36 @@ slist
     | %empty
     ;
 
+type
+    : TYPE
+    | '(' TYPE ')' { $$ = $2; }
+    ;
+
 expression
     : INTEGER                          { $$ = std::shared_ptr<Expression>((Expression*)new IntegerExpression($1));            }
-    | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::PARENTHESES));        }
+    | '(' expression ')'               { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::PARENTHESES, Type::None));        }
 
-    | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ADDITION)); }
-    | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SUBTRACTION)); }
-    | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MULTIPLICATION)); }
-    | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::INTEGER_DIVISION)); }
-    | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MODULO)); }
+    | expression '+' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ADDITION, Type::None)); }
+    | expression '-' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SUBTRACTION, Type::None)); }
+    | expression '*' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MULTIPLICATION, Type::None)); }
+    | expression '/' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::INTEGER_DIVISION, Type::None)); }
+    | expression '%' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::MODULO, Type::None)); }
 
-    | expression '&' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_AND)); }
-    | expression '|' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_OR)); }
-    | expression '^' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_XOR)); }
-    | expression "<<" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_LEFT)); }
-    | expression ">>" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_RIGHT)); }
-    | expression SHORT_CIRCUIT_AND expression { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SHORT_CIRCUIT_AND)); }
-    | expression SHORT_CIRCUIT_OR expression  { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SHORT_CIRCUIT_OR)); }
+    | expression '&' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_AND, Type::None)); }
+    | expression '|' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_OR, Type::None)); }
+    | expression '^' expression        { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_XOR, Type::None)); }
+    | expression "<<" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_LEFT, Type::None)); }
+    | expression ">>" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::BITWISE_SHIFT_RIGHT, Type::None)); }
+    | expression "&&" expression { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SHORT_CIRCUIT_AND, Type::None)); }
+    | expression "||" expression  { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::SHORT_CIRCUIT_OR, Type::None)); }
 
-    | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($1, UnaryOperator::BITWISE_NOT)); }
+    | expression '~' expression        { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($1, UnaryOperator::BITWISE_NOT, Type::None)); }
 
-    | '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::INDIRECTION));        }
-    | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::RELOCATION));           }
-    | expression '[' expression ']'    { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::ARRAY_SUBSCRIPT)); }
-    | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::POINTER_PATH));    }
+    | type '*' expression %prec INDIRECTION { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($3, UnaryOperator::INDIRECTION, $1));        }
+    | '@' expression                   { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression($2, UnaryOperator::RELOCATION, Type::None));           }
+    | "sizeof" type                    { $$ = std::shared_ptr<Expression>((Expression*)new UnaryOperatorExpression(nullptr, UnaryOperator::SIZEOF, $2)); }
+    | type expression '[' expression ']' { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($2, $4, BinaryOperator::ARRAY_SUBSCRIPT, $1)); }
+    | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::POINTER_PATH, Type::None));    }
     | '!' IDENTIFIER "::" IDENTIFIER
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
@@ -360,6 +369,19 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
         '>>'           { TOKEN(BITWISE_SHIFT_RIGHT); }
         '&&'           { TOKEN(SHORT_CIRCUIT_AND); }
         '||'           { TOKEN(SHORT_CIRCUIT_OR); }
+
+        // Type
+        'u8'  { TOKENV(TYPE, Type::U8); }
+        'u16' { TOKENV(TYPE, Type::U16); }
+        'u32' { TOKENV(TYPE, Type::U32); }
+        'u64' { TOKENV(TYPE, Type::U64); }
+        'i8'  { TOKENV(TYPE, Type::I8); }
+        'i16' { TOKENV(TYPE, Type::I16); }
+        'i32' { TOKENV(TYPE, Type::I32); }
+        'i64' { TOKENV(TYPE, Type::I64); }
+        'ptr' { TOKENV(TYPE, Type::PTR); }
+
+        'sizeof' { TOKEN(SIZEOF); }
 
         // Identifier
         @s [a-zA-Z_][a-zA-Z_0-9]* @e { TOKENV(IDENTIFIER, std::string(s, e - s)); }

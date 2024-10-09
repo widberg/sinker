@@ -222,23 +222,30 @@ The Short-Circuit AND operator will be evaluated as the right-most expression if
 Indirection (dereference)
 """""""""""""""""""""""""
 
-``*expression``
+``type*expression``
 
-The expression to be dereferenced will be treated as a ``void**``, the result of the dereference operation will be an address, ``void*``. Smaller or larger values can be dereferenced by using this and then masking out bytes using ``&`` or combining multiple dereferences using ``<<`` and ``|``. A more comprehensive type system may be added in the future. System endianness will be used. If dereferencing the expression causes an access violation, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``*0``, this is used in Sinker's tests.
+The expression to be dereferenced will be treated as a pointer to type ``type``, the result of the dereference operation will be a value of type ``type``. Available types include unsigned and signed fixed-width integer types ``u8``, ``u16``, ``u32``, ``u64``, ``i8``, ``i16``, ``i32``, ``i64``, and finally ``ptr``, an opaque pointer type. Type names can optionally be enclosed in parentheses. System endianness will be used when dereferencing. If the memory at the address is not readable, the expression will evaluate to unresolved. From this definition of the Indirection operator, an easy way to raise an unresolved value arises, ``ptr*0``, this is used in Sinker's tests.
+
+``sizeof``
+""""""""""
+
+``sizeof type``
+
+The size of the type in bytes. Available types are the same as the Indirection operator. This is mostly useful for getting the size of the ``ptr`` type which is platform dependent.
 
 Array Subscripting
 """"""""""""""""""
 
-``expression1[expression2]``
+``type expression1[expression2]``
 
-Equivalent to ``*(expression1 + expression2 * sizeof(void*))`` where ``sizeof(void*)`` is the size, in bytes, of a pointer; note that ``sizeof(void*)`` is purely demonstrative of the behavior of the operation and not valid Sinker Script.
+Equivalent to ``type*(expression1 + expression2 * sizeof type)``.
 
 Pointer Path
 """"""""""""
 
 ``expression1->expression2``
 
-| Equivalent to ``*expression1 + expression2``. This can be chained together multiple times for a LiveSplit Auto Splitter style pointer path i.e. ``0xDEADBEEF->0xABCD->0x1234`` will read an address at ``0xDEADBEEF`` then add ``0xABCD`` and read an address there, finally ``0x1234`` is added to that address.
+| Equivalent to ``ptr*expression1 + expression2``. This can be chained together multiple times for a LiveSplit Auto Splitter style pointer path i.e. ``0xDEADBEEF->0xABCD->0x1234`` will read an address at ``0xDEADBEEF`` then add ``0xABCD`` and read an address there, finally ``0x1234`` is added to that address.
 | Inspired by `LiveSplit Auto Splitter Pointer Paths <https://github.com/LiveSplit/LiveSplit.AutoSplitters#pointer-paths>`_.
 
 Relocate
@@ -263,6 +270,7 @@ Adapted from `C Operator Precedence <https://en.cppreference.com/w/c/language/op
 |            | | ``*``        | | Indirection (dereference) |               |
 |            | | ``@``        | | Relocate                  |               |
 |            | | ``~``        | | Bitwise NOT               |               |
+|            | | ``sizeof``   | | ``sizeof``                |               |
 +------------+----------------+-----------------------------+---------------+
 | 3          | | ``*``        | | Multiplication            | Left-to-right |
 |            | | ``/``        | | Integer Division          |               |

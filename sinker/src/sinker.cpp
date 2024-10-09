@@ -1,3 +1,4 @@
+#include <cassert>
 #include <windows.h>
 #include <cstdlib>
 #include <fstream>
@@ -10,14 +11,69 @@
 
 namespace sinker
 {
-    std::optional<expression_value_t> CheckedDereference(expression_value_t value)
+    std::size_t SizeOfType(Type type)
     {
+        switch (type)
+        {
+        case Type::None:
+            return 0;
+        case Type::U8:
+        case Type::I8:
+            return 1;
+        case Type::U16:
+        case Type::I16:
+            return 2;
+        case Type::U32:
+        case Type::I32:
+            return 4;
+        case Type::U64:
+        case Type::I64:
+            return 8;
+        case Type::PTR:
+            return sizeof(void *);
+        }
+        assert(!"Unreachable");
+        return 0;
+    }
+
+    const char *TypeToString(Type type)
+    {
+        switch (type)
+        {
+        case Type::None:
+            return "None";
+        case Type::U8:
+            return "u8";
+        case Type::U16:
+            return "u16";
+        case Type::U32:
+            return "u32";
+        case Type::U64:
+            return "u64";
+        case Type::I8:
+            return "i8";
+        case Type::I16:
+            return "i16";
+        case Type::I32:
+            return "i32";
+        case Type::I64:
+            return "i64";
+        case Type::PTR:
+            return "ptr";
+        }
+        assert(!"Unreachable");
+        return nullptr;
+    }
+
+    std::optional<expression_value_t> CheckedDereference(expression_value_t value, Type type)
+    {
+        if (type == Type::None)
+        {
+            assert(!"Cannot dereference None type");
+        }
+
 #ifdef SINKER_USE_SEH
         __try {
-            return (expression_value_t) *(void **)(value);
-        } __except (EXCEPTION_EXECUTE_HANDLER) {
-            return {};
-        }
 #else
         MEMORY_BASIC_INFORMATION mbi;
 
@@ -25,10 +81,38 @@ namespace sinker
             return {};
         }
 
-        if ((mbi.State == MEM_COMMIT) && (mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))) {
-            return (expression_value_t) * (void **)(value);
+        if ((mbi.State != MEM_COMMIT) || !(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))) {
+            return {};
+        }
+#endif
+
+        switch (type)
+        {
+        case Type::U8:
+            return (expression_value_t)*(std::uint8_t *)(value);
+        case Type::U16:
+            return (expression_value_t)*(std::uint16_t *)(value);
+        case Type::U32:
+            return (expression_value_t)*(std::uint32_t *)(value);
+        case Type::U64:
+            return (expression_value_t)*(std::uint64_t *)(value);
+        case Type::I8:
+            return (expression_value_t)*(std::int8_t *)(value);
+        case Type::I16:
+            return (expression_value_t)*(std::int16_t *)(value);
+        case Type::I32:
+            return (expression_value_t)*(std::int32_t *)(value);
+        case Type::I64:
+            return (expression_value_t)*(std::int64_t *)(value);
+        case Type::PTR:
+            return (expression_value_t)*(void **)(value);
         }
 
+#ifdef SINKER_USE_SEH
+        } __except (EXCEPTION_EXECUTE_HANDLER) {
+            return {};
+        }
+#else
         return {};
 #endif
     }

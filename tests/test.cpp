@@ -158,7 +158,7 @@ TEST_CASE("Runtime CheckDereference", "[runtime]") {
 
     std::string input = R"?(module fuel;
 symbol fuel::pGlobalCommandState, "const void**";
-address fuel::pGlobalCommandState, [*], *0;
+address fuel::pGlobalCommandState, [*], ptr*0;
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
@@ -188,13 +188,13 @@ TEST_CASE("Runtime Short Circuit Operators", "[runtime]") {
 
   std::string input = R"?(module fuel;
 symbol fuel::ShortCircuitAndUnresolved, "void *";
-address fuel::ShortCircuitAndUnresolved, [*], *0 && 1;
+address fuel::ShortCircuitAndUnresolved, [*], ptr*0 && 1;
 symbol fuel::ShortCircuitAndResolved, "void *";
 address fuel::ShortCircuitAndResolved, [*], 1 && 2;
 symbol fuel::ShortCircuitOrUnresolved, "void *";
-address fuel::ShortCircuitOrUnresolved, [*], *0 || *0;
+address fuel::ShortCircuitOrUnresolved, [*], ptr*0 || ptr*0;
 symbol fuel::ShortCircuitOrResolved, "void *";
-address fuel::ShortCircuitOrResolved, [*], *0 || 1;
+address fuel::ShortCircuitOrResolved, [*], ptr*0 || 1;
 )?";
 
   REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
