@@ -10,7 +10,7 @@ namespace sinker
         {
             if (address.first.empty() || address.first.find(module->get_real_variant()) != address.first.end())
             {
-                cached_calculated_address = address.second->calculate(this);
+                cached_calculated_address = address.second->calculate(module);
                 if (cached_calculated_address)
                 {
                     return (T)(cached_calculated_address.value());

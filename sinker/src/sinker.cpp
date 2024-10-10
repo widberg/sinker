@@ -148,9 +148,9 @@ namespace sinker
     {
         symbols.push_back(Symbol(name, type, this));
     }
-    void Module::add_variant(std::string const &name, std::string const &hash)
+    void Module::add_variant(std::string const &name, std::variant<std::string, std::shared_ptr<Expression>> const& variant_condition)
     {
-        variants.insert({name, hash});
+        variants.insert({name, variant_condition});
     }
     bool Module::has_variant(std::string_view name) const
     {
@@ -177,7 +177,13 @@ namespace sinker
 
         for (auto variant : variants)
         {
-            out << "variant " << name << ", " << variant.first << ", \"" << variant.second << "\";\n";
+            out << "variant " << name << ", " << variant.first << ", ";
+            if (std::string const* hash = std::get_if<std::string>(&variant.second)) {
+                out << '"' << *hash << "\"";
+            } else if (std::shared_ptr<Expression> const* expression = std::get_if<std::shared_ptr<Expression>>(&variant.second)) {
+                out << **expression;
+            }
+            out << ";\n";
         }
 
         for (Symbol const &symbol : symbols)
@@ -244,21 +250,28 @@ namespace sinker
     
     bool Module::concretize()
     {
-        HMODULE tmphModule;
+        HMODULE hModule;
         if (lpModuleName) {
-            tmphModule = GetModuleHandleA(lpModuleName.value().c_str());
+            hModule = GetModuleHandleA(lpModuleName.value().c_str());
         } else {
-            tmphModule = GetModuleHandleA(NULL);
+            hModule = GetModuleHandleA(NULL);
         }
 
-        if(tmphModule == NULL)
+        if(hModule == NULL)
         {
             return false;
         }
+
+        IMAGE_DOS_HEADER* pDOSHeader = (IMAGE_DOS_HEADER*)hModule;
+        IMAGE_NT_HEADERS* pNTHeaders =(IMAGE_NT_HEADERS*)((BYTE*)pDOSHeader + pDOSHeader->e_lfanew);
+
+        preferred_base_address = pNTHeaders->OptionalHeader.ImageBase;
+        relocated_base_address = (expression_value_t)hModule;
         
         char path[MAX_PATH + 1];
-        if (!GetModuleFileNameA(tmphModule, path, MAX_PATH + 1))
+        if (!GetModuleFileNameA(hModule, path, MAX_PATH + 1))
         {
+            hModule = NULL;
             return false;
         }
 
@@ -269,23 +282,23 @@ namespace sinker
             std::string hash = sha256.getHashFromFile(path);
             for (auto variant : variants)
             {
-                if (variant.second == hash)
+                std::string const* expected_hash = std::get_if<std::string>(&variant.second);
+                if (expected_hash && *expected_hash == hash)
                 {
                     real_variant = variant.first;
                     break;
                 }
+                
+                std::shared_ptr<Expression> const* expression = std::get_if<std::shared_ptr<Expression>>(&variant.second);
+                if (expression && (*expression)->calculate(this).has_value()) {
+                    real_variant = variant.first;
+                }
             }
         } catch(hlException &e) {
             std::cerr << "Error("  << e.error_number() << "): " << e.error_message() << std::endl;
+            hModule = NULL;
             return false;
         }
-
-        IMAGE_DOS_HEADER* pDOSHeader = (IMAGE_DOS_HEADER*)tmphModule;
-        IMAGE_NT_HEADERS* pNTHeaders =(IMAGE_NT_HEADERS*)((BYTE*)pDOSHeader + pDOSHeader->e_lfanew);
-
-        preferred_base_address = pNTHeaders->OptionalHeader.ImageBase;
-        relocated_base_address = (expression_value_t)tmphModule;
-        hModule = tmphModule;
 
         return true;
     }

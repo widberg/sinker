@@ -91,6 +91,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<MaskedByte> PATTERN_BYTE
 %type<Type> TYPE type
 %type<std::shared_ptr<Expression>> expression
+%type<std::variant<std::string, std::shared_ptr<Expression>>> variant_condition
 %type<bool> BOOL
 %type<attribute_value_t> attribute_value
 %type<PatternByteList> pattern_match_body pattern_byte_list
@@ -262,6 +263,11 @@ identifier_set
     | '*' { $$ = identifier_set_t {}; }
     ;
 
+variant_condition
+    : string { $$ = $1; }
+    | expression { $$ = $1; }
+    ;
+
 stmt
     : "module" IDENTIFIER ',' string ';'
     {
@@ -273,7 +279,7 @@ stmt
         VERIFY(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, {});
     }
-    | "variant" IDENTIFIER ',' IDENTIFIER ',' string ';'
+    | "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition ';'
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         VERIFY(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");

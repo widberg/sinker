@@ -183,6 +183,19 @@ address fuel::pGlobalCommandState, [*], { "Houston, " &"we have a problem." };
     REQUIRE((void *)result.value() == (void *)(data + 9));
 }
 
+TEST_CASE("Runtime Pattern Match Variant", "[runtime]") {
+    sinker::Context context;
+
+    std::string input = R"?(module fuel;
+variant fuel, no, ptr*0;
+variant fuel, yes, 1;
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    REQUIRE(context.get_module("fuel")->concretize());
+    REQUIRE(context.get_module("fuel")->get_real_variant() == "yes");
+}
+
 TEST_CASE("Runtime Short Circuit Operators", "[runtime]") {
   sinker::Context context;
 

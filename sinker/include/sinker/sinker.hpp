@@ -44,12 +44,12 @@ namespace sinker
     };
 
     class Context;
-    class Symbol;
+    class Module;
 
     class Expression
     {
     public:
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const = 0;
+        virtual std::optional<expression_value_t> calculate(Module *symbol) const = 0;
         virtual void dump(std::ostream &out) const = 0;
         virtual ~Expression() {}
     };
@@ -157,7 +157,7 @@ namespace sinker
         Symbol *get_symbol(std::string_view symbol_name);
 
         void emplace_symbol(std::string const &name, std::string const &type);
-        void add_variant(std::string const &name, std::string const &hash);
+        void add_variant(std::string const &name, std::variant<std::string, std::shared_ptr<Expression>> const& variant_condition);
         bool has_variant(std::string_view name) const;
         void dump(std::ostream &out) const;
         void dump_def(std::ostream &out) const;
@@ -178,7 +178,7 @@ namespace sinker
         std::optional<expression_value_t> preferred_base_address;
         std::optional<expression_value_t> relocated_base_address;
         std::vector<Symbol> symbols;
-        std::map<std::string, std::string, std::less<>> variants;
+        std::map<std::string, std::variant<std::string, std::shared_ptr<Expression>>, std::less<>> variants;
         std::string real_variant;
         HMODULE hModule = 0;
         identifier_set_t tags;
@@ -198,7 +198,7 @@ namespace sinker
     public:
         IntegerExpression(expression_value_t value)
             : value(value) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *module) const override
         {
             return value;
         }
@@ -244,14 +244,14 @@ namespace sinker
     public:
         UnaryOperatorExpression(std::shared_ptr<Expression> expression, UnaryOperator unary_operator, Type type)
             : expression(expression), unary_operator(unary_operator), type(type) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *module) const override
         {
             if (unary_operator == UnaryOperator::SIZEOF)
             {
                 return (expression_value_t)SizeOfType(type);
             }
 
-            auto expression_result = expression->calculate(symbol);
+            auto expression_result = expression->calculate(module);
             PROPAGATE_UNRESOLVED(expression_result);
 
             switch (unary_operator)
@@ -262,9 +262,9 @@ namespace sinker
                 return CheckedDereference(expression_result.value(), type);
             case UnaryOperator::RELOCATION:
             {
-                auto preferred_base_address_result = symbol->get_module()->get_preferred_base_address();
+                auto preferred_base_address_result = module->get_preferred_base_address();
                 PROPAGATE_UNRESOLVED(preferred_base_address_result);
-                auto relocated_base_address_result = symbol->get_module()->get_relocated_base_address();
+                auto relocated_base_address_result = module->get_relocated_base_address();
                 PROPAGATE_UNRESOLVED(relocated_base_address_result);
                 return expression_result.value() - preferred_base_address_result.value() + relocated_base_address_result.value();
             }
@@ -326,9 +326,9 @@ namespace sinker
     public:
         BinaryOperatorExpression(std::shared_ptr<Expression> lhs, std::shared_ptr<Expression> rhs, BinaryOperator binary_operator, Type type)
             : lhs(lhs), rhs(rhs), binary_operator(binary_operator), type(type) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *module) const override
         {
-            auto lhs_result = lhs->calculate(symbol);
+            auto lhs_result = lhs->calculate(module);
 
             if (binary_operator == BinaryOperator::SHORT_CIRCUIT_OR)
             {
@@ -338,7 +338,7 @@ namespace sinker
                 }
             }
 
-            auto rhs_result = rhs->calculate(symbol);
+            auto rhs_result = rhs->calculate(module);
 
             if (binary_operator == BinaryOperator::SHORT_CIRCUIT_OR) {
                 if (rhs_result)
@@ -456,7 +456,7 @@ namespace sinker
     public:
         GetProcAddressExpression(Module *module, std::string const &lpProcName)
             : module(module), lpProcName(lpProcName) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *module) const override
         {
             HMODULE hModule = module->get_hModule();
             if (!hModule)
@@ -488,7 +488,7 @@ namespace sinker
     public:
         ModuleExpression(Module *module)
             : module(module) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *_module) const override
         {
             return module->get_relocated_base_address();
         }
@@ -506,7 +506,7 @@ namespace sinker
     public:
         SymbolExpression(Symbol *symbol)
             : symbol(symbol) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *_symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *module) const override
         {
             return symbol->get_cached_calculated_address<expression_value_t>();
         }
@@ -851,7 +851,7 @@ namespace sinker
     public:
         PatternMatchExpression(std::vector<MaskedByte> const& needle, expression_value_t offset = 0, std::vector<PatternMatchFilter> const& filters = {})
             : filters(filters), needle(needle), offset(offset) {}
-        virtual std::optional<expression_value_t> calculate(Symbol *symbol) const override
+        virtual std::optional<expression_value_t> calculate(Module *module) const override
         {
             PatternMatchNeedle pattern_match_needle(needle);
 
