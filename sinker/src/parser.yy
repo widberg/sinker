@@ -115,7 +115,7 @@ lexer_state->in_pattern_match_expression = false;
 %%
 
 slist
-    : slist stmt
+    : slist stmt end_of_stmt
     | %empty
     ;
 
@@ -268,52 +268,57 @@ variant_condition
     | expression { $$ = $1; }
     ;
 
+end_of_stmt
+    : ';'
+    | %empty
+    ;
+
 stmt
-    : "module" IDENTIFIER ',' string ';'
+    : "module" IDENTIFIER ',' string
     {
         VERIFY(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, $4);
     }
-    | "module" IDENTIFIER ';'
+    | "module" IDENTIFIER
     {
         VERIFY(!ctx->get_module($2), @2, "Module exists");
         ctx->emplace_module($2, {});
     }
-    | "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition ';'
+    | "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         VERIFY(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");
         ctx->get_module($2)->add_variant($4, $6);
     }
-    | "symbol" IDENTIFIER "::" IDENTIFIER ',' string ';'
+    | "symbol" IDENTIFIER "::" IDENTIFIER ',' string
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         VERIFY(!ctx->get_module($2)->get_symbol($4), @4, "Symbol exists");
         ctx->get_module($2)->emplace_symbol($4, $6);
     }
-    | "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression ';'
+    | "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
         ctx->get_module($2)->get_symbol($4)->add_address($7, $10);
     }
-    | "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
+    | "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         ctx->get_module($2)->set_attribute($4, $6);
     }
-    | "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value ';'
+    | "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
         ctx->get_module($2)->get_symbol($4)->set_attribute($6, $8);
     }
-    | "tag" IDENTIFIER ',' IDENTIFIER ';'
+    | "tag" IDENTIFIER ',' IDENTIFIER
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         ctx->get_module($2)->add_tag($4);
     }
-    | "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ';'
+    | "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER
     {
         VERIFY(ctx->get_module($2), @2, "Module does not exist");
         VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");

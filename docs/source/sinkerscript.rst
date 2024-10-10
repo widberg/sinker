@@ -9,7 +9,7 @@ Language Elements
 Directive
 ^^^^^^^^^
 
-Every Sinker Script statement starts with a :ref:`directive <Directives>`.
+Every Sinker Script statement starts with a :ref:`directive <Directives>`. Statements can optionally end with a semicolon.
 
 Identifier
 ^^^^^^^^^^
