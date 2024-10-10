@@ -47,6 +47,12 @@ struct LexerState
     Language mode = Language::SINKER;
 };
 
+struct StringModifiers
+{
+    bool wide : 1;
+    bool ascii : 1;
+};
+
 struct PatternByteList : public std::vector<MaskedByte>
 {
     std::optional<expression_value_t> offset;
@@ -85,6 +91,8 @@ lexer_state->in_pattern_match_expression = false;
 %token BITWISE_SHIFT_RIGHT ">>"
 %token SHORT_CIRCUIT_AND "&&"
 %token SHORT_CIRCUIT_OR "||"
+%token WIDE "wide"
+%token ASCII "ascii"
 
 %type<std::string> IDENTIFIER STRING string
 %type<expression_value_t> INTEGER
@@ -98,6 +106,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<identifier_set_t> identifier_set identifier_set_full
 %type<std::vector<PatternMatchFilter>> pattern_match_filter pattern_match_filter_list
 %type<PatternMatchFilter> pattern_match_filter_atom
+%type<StringModifiers> string_modifiers
 
 %left "||"
 %left "&&"
@@ -221,6 +230,12 @@ pattern_match_body
     }
     ;
 
+string_modifiers
+    : %empty { $$ = {}; }
+    | string_modifiers "wide" { $$ = $1; $$.wide = true; }
+    | string_modifiers "ascii" { $$ = $1; $$.ascii = true; }
+    ;
+
 pattern_byte_list
     : pattern_byte_list PATTERN_BYTE
     {
@@ -233,10 +248,16 @@ pattern_byte_list
         $1.offset = $1.size();
         $$ = $1;
     }
-    | pattern_byte_list STRING
+    | pattern_byte_list STRING string_modifiers
     {
+        VERIFY(($3.ascii == false && $3.wide == false) || ($3.ascii != $3.wide), @3, "String cannot be both wide and ascii");
         for (char c : $2) {
-            $1.push_back({ (std::uint8_t)c, 0xFF });
+            if (!$3.wide) {
+                $1.push_back({ (std::uint8_t)c, 0xFF });
+            } else {
+                $1.push_back({ (std::uint8_t)c, 0xFF });
+                $1.push_back({ 0, 0xFF });
+            }
         }
         $$ = $1;
     }
@@ -415,6 +436,9 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
         %}
     pattern_match:
         %{
+        'wide' { TOKEN(WIDE); }
+        'ascii' { TOKEN(ASCII); }
+
         '??' { TOKENV(PATTERN_BYTE, { 0, 0x00 }); }
         @s [0-9a-fA-F][0-9a-fA-F] @e {
             char *p;

@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <sstream>
 #include <string>
 
@@ -205,6 +206,30 @@ variant fuel, yes, { "Darkness cannot drive out darkness; only light can do that
     REQUIRE(context.get_module("fuel")->concretize());
     REQUIRE(context.get_module("fuel")->get_real_variant() == "yes");
 }
+
+TEST_CASE("Runtime Pattern Match Wide String", "[runtime]") {
+    sinker::Context context;
+
+    static const char *data_ascii = "A wilderness explorer is a friend to all, be a plant or fish or tiny mole!";
+    static const wchar_t *data_wide = L"A wilderness explorer is a friend to all, be a plant or fish or tiny mole!";
+
+    std::string input = R"?(module fuel;
+symbol fuel::ascii, "const char *";
+address fuel::ascii, [*], { "A wilderness explorer is a friend to all, " &"be a plant or fish or tiny mole!" ascii };
+symbol fuel::wide, "const wchar_t *";
+address fuel::wide, [*], { "A wilderness explorer is a friend to all, " wide &"be a plant or fish or tiny mole!" wide };
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    REQUIRE(context.get_module("fuel")->concretize());
+    auto result_ascii = context.get_module("fuel")->get_symbol("ascii")->calculate_address<const char *>();
+    REQUIRE(result_ascii);
+    REQUIRE((void *)result_ascii.value() == (void *)(data_ascii + 42));
+    auto result_wide = context.get_module("fuel")->get_symbol("wide")->calculate_address<const wchar_t *>();
+    REQUIRE(result_wide);
+    REQUIRE((void *)result_wide.value() == (void *)(data_wide + 42));
+}
+
 
 TEST_CASE("Runtime Short Circuit Operators", "[runtime]") {
   sinker::Context context;

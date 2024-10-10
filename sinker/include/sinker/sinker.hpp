@@ -2,6 +2,7 @@
 #define SINKER_HPP
 
 #include <Windows.h>
+#include <cstdio>
 #include <detours.h>
 
 #include <map>
