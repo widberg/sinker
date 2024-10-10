@@ -123,6 +123,14 @@ address fuel::pGlobalCommandState, [retail], [fuel::".text"]{ DE AD BE EF 74 65 
     REQUIRE(out.str() == output);
 }
 
+TEST_CASE("Script Empty Statements", "[script]") {
+    sinker::Context context;
+
+    std::string input = ";;;;;;;;;;;;;;;";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+}
+
 TEST_CASE("Runtime Pattern Match", "[runtime]") {
     std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xAD, 0xBE, 0xEF, 0x73, 0x74 };
 
@@ -186,9 +194,11 @@ address fuel::pGlobalCommandState, [*], { "Houston, " &"we have a problem." };
 TEST_CASE("Runtime Pattern Match Variant", "[runtime]") {
     sinker::Context context;
 
+    static const char *data = "Darkness cannot drive out darkness; only light can do that. Hate cannot drive out hate; only love can do that.";
+
     std::string input = R"?(module fuel;
-variant fuel, no, ptr*0;
-variant fuel, yes, 1;
+variant fuel, no, { "The darker the night, " "the brighter the stars." };
+variant fuel, yes, { "Darkness cannot drive out darkness; only light can do that. " "Hate cannot drive out hate; only love can do that." };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));

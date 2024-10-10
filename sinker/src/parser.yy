@@ -115,7 +115,8 @@ lexer_state->in_pattern_match_expression = false;
 %%
 
 slist
-    : slist stmt end_of_stmt
+    : slist stmt
+    | slist ';'
     | %empty
     ;
 
@@ -266,11 +267,6 @@ identifier_set
 variant_condition
     : string { $$ = $1; }
     | expression { $$ = $1; }
-    ;
-
-end_of_stmt
-    : ';'
-    | %empty
     ;
 
 stmt

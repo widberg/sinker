@@ -38,6 +38,7 @@ Instructions on how to build and test the project.
 * CMake
 * [re2c](https://github.com/skvadrik/re2c) (Optional<sup>†</sup>)
 * Bison or [WinFlexBison](https://github.com/lexxmark/winflexbison) (Optional<sup>†</sup>)
+
 †<sub>Only needed if editing the Sinker Script grammar file.</sub>
 
 ### Checkout

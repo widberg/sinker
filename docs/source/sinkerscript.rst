@@ -60,7 +60,7 @@ A module corresponds to a target PE file, ``.exe`` or ``.dll``, loaded into the 
 Variant
 ^^^^^^^
 
-A variant corresponds to a known distribution of a target PE file, identified by its SHA256 hash or if an expression is able to be resolved. This makes it easier to provide known addresses for each binary variant. If a PE file does not match any of the known hashes and none of the expressions are able to be resolved, it will not have a variant name. The SHA256 hash of a file can be obtained using the ``certUtil -hashfile C:\file.exe SHA256`` command on Windows or ``sha256sum file.exe`` command from coreutils on most Linux distributions.
+A variant corresponds to a known distribution of a target PE file, identified by its SHA256 hash or if an expression is able to be resolved. This makes it easier to provide known addresses for each binary variant. Variants will be checked in the order they are declared. If a PE file does not match any of the known hashes and none of the expressions are able to be resolved, it will not have a variant name. The SHA256 hash of a file can be obtained using the ``certUtil -hashfile C:\file.exe SHA256`` command on Windows or ``sha256sum file.exe`` command from coreutils on most Linux distributions.
 
 | ``variant <module_name:identifier>, <variant_name:identifier>, <sha256_hash:string>;``
 | ``variant <module_name:identifier>, <variant_name:identifier>, <expression:expression>;``

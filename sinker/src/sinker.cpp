@@ -150,11 +150,18 @@ namespace sinker
     }
     void Module::add_variant(std::string const &name, std::variant<std::string, std::shared_ptr<Expression>> const& variant_condition)
     {
-        variants.insert({name, variant_condition});
+        variants.push_back({name, variant_condition});
     }
     bool Module::has_variant(std::string_view name) const
     {
-        return variants.count(name);
+        for (auto const& variant : variants)
+        {
+            if (variant.first == name)
+            {
+                return true;
+            }
+        }
+        return false;
     }
     void Module::dump(std::ostream &out) const
     {

@@ -178,7 +178,7 @@ namespace sinker
         std::optional<expression_value_t> preferred_base_address;
         std::optional<expression_value_t> relocated_base_address;
         std::vector<Symbol> symbols;
-        std::map<std::string, std::variant<std::string, std::shared_ptr<Expression>>, std::less<>> variants;
+        std::vector<std::pair<std::string, std::variant<std::string, std::shared_ptr<Expression>>>> variants;
         std::string real_variant;
         HMODULE hModule = 0;
         identifier_set_t tags;
