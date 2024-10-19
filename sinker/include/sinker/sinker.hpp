@@ -906,7 +906,7 @@ namespace sinker
 
                 while (VirtualQuery (cur_base_address, &mbi, sizeof (mbi)))
                 {
-                    if (mbi.Protect != 0 && (mbi.Protect & PAGE_GUARD) == 0 && (mbi.Protect & PAGE_NOACCESS) == 0)
+                    if ((mbi.State == MEM_COMMIT) && (mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE)))
                     {
                         void *begin = cur_base_address;
                         void *end = cur_base_address + mbi.RegionSize;

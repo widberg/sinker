@@ -76,13 +76,27 @@ namespace sinker
         __try {
 #else
         MEMORY_BASIC_INFORMATION mbi;
+        std::size_t size = SizeOfType(type);
+        std::uintptr_t current_address = static_cast<std::uintptr_t>(value);
+        std::uintptr_t end_address = current_address + size;
 
-        if (VirtualQuery((LPCVOID)value, &mbi, sizeof(mbi)) == 0) {
-            return {};
-        }
+        while (current_address < end_address) {
+            if (VirtualQuery((LPCVOID)current_address, &mbi, sizeof(mbi)) == 0) {
+                return {};
+            }
 
-        if ((mbi.State != MEM_COMMIT) || !(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))) {
-            return {};
+            if ((mbi.State != MEM_COMMIT) || !(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))) {
+                return {};
+            }
+
+            std::uintptr_t region_start = reinterpret_cast<std::uintptr_t>(mbi.BaseAddress);
+            std::uintptr_t region_end = region_start + mbi.RegionSize;
+
+            if (end_address <= region_end) {
+                break;
+            }
+
+            current_address = region_end;
         }
 #endif
 
@@ -257,7 +271,6 @@ namespace sinker
     
     bool Module::concretize()
     {
-        HMODULE hModule;
         if (lpModuleName) {
             hModule = GetModuleHandleA(lpModuleName.value().c_str());
         } else {
@@ -299,6 +312,7 @@ namespace sinker
                 std::shared_ptr<Expression> const* expression = std::get_if<std::shared_ptr<Expression>>(&variant.second);
                 if (expression && (*expression)->calculate(this).has_value()) {
                     real_variant = variant.first;
+                    break;
                 }
             }
         } catch(hlException &e) {

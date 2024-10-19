@@ -93,7 +93,6 @@ address xlive::ValidateMemory, [v3_5_95_0], @5191347;
 
     std::stringstream output;
     context.dump(output);
-
     REQUIRE(output.str() == input);
 }
 
@@ -120,7 +119,6 @@ address fuel::pGlobalCommandState, [retail], [fuel::".text"]{ DE AD BE EF 74 65 
 
     std::stringstream out;
     context.dump(out);
-
     REQUIRE(out.str() == output);
 }
 
@@ -179,10 +177,11 @@ TEST_CASE("Runtime Pattern Match Integration", "[runtime]") {
 
     static const char *data = "Houston, we have a problem.";
 
+    // Break up strings in pattern match so that it only matches the data string above
     std::string input = R"?(module fuel;
 symbol fuel::pGlobalCommandState, "const char *";
-address fuel::pGlobalCommandState, [*], [fuel::".text"]{ "To be or not to be, that is the question." };
-address fuel::pGlobalCommandState, [*], { "Houston, " &"we have a problem." };
+address fuel::pGlobalCommandState, [*], [fuel]{ "To be or not to be, " "that is the question." };
+address fuel::pGlobalCommandState, [*], [fuel]{ "Houston, " &"we have a problem." };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
@@ -198,13 +197,14 @@ TEST_CASE("Runtime Pattern Match Variant", "[runtime]") {
     static const char *data = "Darkness cannot drive out darkness; only light can do that. Hate cannot drive out hate; only love can do that.";
 
     std::string input = R"?(module fuel;
-variant fuel, no, { "The darker the night, " "the brighter the stars." };
-variant fuel, yes, { "Darkness cannot drive out darkness; only light can do that. " "Hate cannot drive out hate; only love can do that." };
+variant fuel, no, [fuel]{ "The darker the night, " "the brighter the stars." };
+variant fuel, yes, [fuel]{ "Darkness cannot drive out darkness; only light can do that. " "Hate cannot drive out hate; only love can do that." };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
     REQUIRE(context.get_module("fuel")->concretize());
     REQUIRE(context.get_module("fuel")->get_real_variant() == "yes");
+    REQUIRE(data); // Prevent data from being optimized out
 }
 
 TEST_CASE("Runtime Pattern Match Wide String", "[runtime]") {
@@ -215,9 +215,9 @@ TEST_CASE("Runtime Pattern Match Wide String", "[runtime]") {
 
     std::string input = R"?(module fuel;
 symbol fuel::ascii, "const char *";
-address fuel::ascii, [*], { "A wilderness explorer is a friend to all, " &"be a plant or fish or tiny mole!" ascii };
+address fuel::ascii, [*], [fuel]{ "A wilderness explorer is a friend to all, " &"be a plant or fish or tiny mole!" ascii };
 symbol fuel::wide, "const wchar_t *";
-address fuel::wide, [*], { "A wilderness explorer is a friend to all, " wide &"be a plant or fish or tiny mole!" wide };
+address fuel::wide, [*], [fuel]{ "A wilderness explorer is a friend to all, " wide &"be a plant or fish or tiny mole!" wide };
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
@@ -229,7 +229,6 @@ address fuel::wide, [*], { "A wilderness explorer is a friend to all, " wide &"b
     REQUIRE(result_wide);
     REQUIRE((void *)result_wide.value() == (void *)(data_wide + 42));
 }
-
 
 TEST_CASE("Runtime Short Circuit Operators", "[runtime]") {
   sinker::Context context;
@@ -246,6 +245,11 @@ address fuel::ShortCircuitOrResolved, [*], ptr*0 || 1;
 )?";
 
   REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+
+  std::stringstream output;
+  context.dump(output);
+  REQUIRE(output.str() == input);
+
   REQUIRE(context.get_module("fuel")->concretize());
   auto result_au = context.get_module("fuel")
                     ->get_symbol("ShortCircuitAndUnresolved")
