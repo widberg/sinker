@@ -1,10 +1,9 @@
-#include <sha256.hpp>
 #include <CLI/CLI.hpp>
-#include <string>
 #include <iostream>
+#include <sha256.hpp>
+#include <string>
 
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]) {
     CLI::App app{"sha256sum"};
     std::string filename;
     app.add_option("filename", filename, "File to hash")->required();

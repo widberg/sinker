@@ -22,7 +22,7 @@ TEST_CASE("Script FMTK Integration Test", "[script]") {
     sinker::Context context;
 
     std::string input =
-R"?(module fuel;
+        R"?(module fuel;
 variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35feeda856";
 symbol fuel::pGlobalCommandState, "const void**";
 address fuel::pGlobalCommandState, [retail], @10993792;
@@ -131,9 +131,10 @@ TEST_CASE("Script Empty Statements", "[script]") {
 }
 
 TEST_CASE("Runtime Pattern Match", "[runtime]") {
-    std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xAD, 0xBE, 0xEF, 0x73, 0x74 };
+    std::uint8_t data[] = {0x74, 0x65, 0xDE, 0xAD, 0xBE, 0xEF, 0x73, 0x74};
 
-    sinker::PatternMatchNeedle needle({ { 0xDE, 0xFF }, { 0xAD, 0xFF }, { 0xBE, 0xFF }, { 0xEF, 0xFF } });
+    sinker::PatternMatchNeedle needle(
+        {{0xDE, 0xFF}, {0xAD, 0xFF}, {0xBE, 0xFF}, {0xEF, 0xFF}});
 
     void *result = needle.search(data, data + sizeof(data));
 
@@ -141,9 +142,10 @@ TEST_CASE("Runtime Pattern Match", "[runtime]") {
 }
 
 TEST_CASE("Runtime Pattern Match Not Found", "[runtime]") {
-    std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xFF, 0xFF, 0xEF, 0x73, 0x74 };
+    std::uint8_t data[] = {0x74, 0x65, 0xDE, 0xFF, 0xFF, 0xEF, 0x73, 0x74};
 
-    sinker::PatternMatchNeedle needle({ { 0xDE, 0xFF }, { 0xAD, 0xF0 }, { 0xBE, 0x0F }, { 0xEF, 0xFF } });
+    sinker::PatternMatchNeedle needle(
+        {{0xDE, 0xFF}, {0xAD, 0xF0}, {0xBE, 0x0F}, {0xEF, 0xFF}});
 
     void *result = needle.search(data, data + sizeof(data));
 
@@ -151,9 +153,10 @@ TEST_CASE("Runtime Pattern Match Not Found", "[runtime]") {
 }
 
 TEST_CASE("Runtime Pattern Match Mask", "[runtime]") {
-    std::uint8_t data[] = { 0x74, 0x65, 0xDE, 0xAF, 0xFE, 0xEF, 0x73, 0x74 };
+    std::uint8_t data[] = {0x74, 0x65, 0xDE, 0xAF, 0xFE, 0xEF, 0x73, 0x74};
 
-    sinker::PatternMatchNeedle needle({ { 0xDE, 0xFF }, { 0xAD, 0xF0 }, { 0xBE, 0x0F }, { 0xEF, 0xFF } });
+    sinker::PatternMatchNeedle needle(
+        {{0xDE, 0xFF}, {0xAD, 0xF0}, {0xBE, 0x0F}, {0xEF, 0xFF}});
 
     void *result = needle.search(data, data + sizeof(data));
 
@@ -169,15 +172,18 @@ address fuel::pGlobalCommandState, [*], ptr*0;
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
-    REQUIRE_FALSE(context.get_module("fuel")->get_symbol("pGlobalCommandState")->calculate_address<const void**>());
+    REQUIRE_FALSE(context.get_module("fuel")
+                      ->get_symbol("pGlobalCommandState")
+                      ->calculate_address<void const **>());
 }
 
 TEST_CASE("Runtime Pattern Match Integration", "[runtime]") {
     sinker::Context context;
 
-    static const char *data = "Houston, we have a problem.";
+    static char const *data = "Houston, we have a problem.";
 
-    // Break up strings in pattern match so that it only matches the data string above
+    // Break up strings in pattern match so that it only matches the data string
+    // above
     std::string input = R"?(module fuel;
 symbol fuel::pGlobalCommandState, "const char *";
 address fuel::pGlobalCommandState, [*], [fuel]{ "To be or not to be, " "that is the question." };
@@ -186,7 +192,9 @@ address fuel::pGlobalCommandState, [*], [fuel]{ "Houston, " &"we have a problem.
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
     REQUIRE(context.get_module("fuel")->concretize());
-    auto result = context.get_module("fuel")->get_symbol("pGlobalCommandState")->calculate_address<const char *>();
+    auto result = context.get_module("fuel")
+                      ->get_symbol("pGlobalCommandState")
+                      ->calculate_address<char const *>();
     REQUIRE(result);
     REQUIRE((void *)result.value() == (void *)(data + 9));
 }
@@ -194,7 +202,9 @@ address fuel::pGlobalCommandState, [*], [fuel]{ "Houston, " &"we have a problem.
 TEST_CASE("Runtime Pattern Match Variant", "[runtime]") {
     sinker::Context context;
 
-    static const char *data = "Darkness cannot drive out darkness; only light can do that. Hate cannot drive out hate; only love can do that.";
+    static char const *data =
+        "Darkness cannot drive out darkness; only light can do that. Hate "
+        "cannot drive out hate; only love can do that.";
 
     std::string input = R"?(module fuel;
 variant fuel, no, [fuel]{ "The darker the night, " "the brighter the stars." };
@@ -210,8 +220,10 @@ variant fuel, yes, [fuel]{ "Darkness cannot drive out darkness; only light can d
 TEST_CASE("Runtime Pattern Match Wide String", "[runtime]") {
     sinker::Context context;
 
-    static const char *data_ascii = "A wilderness explorer is a friend to all, be a plant or fish or tiny mole!";
-    static const wchar_t *data_wide = L"A wilderness explorer is a friend to all, be a plant or fish or tiny mole!";
+    static char const *data_ascii = "A wilderness explorer is a friend to all, "
+                                    "be a plant or fish or tiny mole!";
+    static wchar_t const *data_wide = L"A wilderness explorer is a friend to "
+                                      L"all, be a plant or fish or tiny mole!";
 
     std::string input = R"?(module fuel;
 symbol fuel::ascii, "const char *";
@@ -222,18 +234,22 @@ address fuel::wide, [*], [fuel]{ "A wilderness explorer is a friend to all, " wi
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
     REQUIRE(context.get_module("fuel")->concretize());
-    auto result_ascii = context.get_module("fuel")->get_symbol("ascii")->calculate_address<const char *>();
+    auto result_ascii = context.get_module("fuel")
+                            ->get_symbol("ascii")
+                            ->calculate_address<char const *>();
     REQUIRE(result_ascii);
     REQUIRE((void *)result_ascii.value() == (void *)(data_ascii + 42));
-    auto result_wide = context.get_module("fuel")->get_symbol("wide")->calculate_address<const wchar_t *>();
+    auto result_wide = context.get_module("fuel")
+                           ->get_symbol("wide")
+                           ->calculate_address<wchar_t const *>();
     REQUIRE(result_wide);
     REQUIRE((void *)result_wide.value() == (void *)(data_wide + 42));
 }
 
 TEST_CASE("Runtime Short Circuit Operators", "[runtime]") {
-  sinker::Context context;
+    sinker::Context context;
 
-  std::string input = R"?(module fuel;
+    std::string input = R"?(module fuel;
 symbol fuel::ShortCircuitAndUnresolved, "void *";
 address fuel::ShortCircuitAndUnresolved, [*], ptr*0 && 1;
 symbol fuel::ShortCircuitAndResolved, "void *";
@@ -244,29 +260,29 @@ symbol fuel::ShortCircuitOrResolved, "void *";
 address fuel::ShortCircuitOrResolved, [*], ptr*0 || 1;
 )?";
 
-  REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
 
-  std::stringstream output;
-  context.dump(output);
-  REQUIRE(output.str() == input);
+    std::stringstream output;
+    context.dump(output);
+    REQUIRE(output.str() == input);
 
-  REQUIRE(context.get_module("fuel")->concretize());
-  auto result_au = context.get_module("fuel")
-                    ->get_symbol("ShortCircuitAndUnresolved")
-                    ->calculate_address<void *>();
-  REQUIRE(!result_au);
-  auto result_ar = context.get_module("fuel")
-                    ->get_symbol("ShortCircuitAndResolved")
-                    ->calculate_address<void *>();
-  REQUIRE(result_ar);
-  REQUIRE((void *)result_ar.value() == (void *)2);
-  auto result_ou = context.get_module("fuel")
-                    ->get_symbol("ShortCircuitOrUnresolved")
-                    ->calculate_address<void *>();
-  REQUIRE(!result_ou);
-  auto result_or = context.get_module("fuel")
-                    ->get_symbol("ShortCircuitOrResolved")
-                    ->calculate_address<void *>();
-  REQUIRE(result_or);
-  REQUIRE((void *)result_or.value() == (void *)1);
+    REQUIRE(context.get_module("fuel")->concretize());
+    auto result_au = context.get_module("fuel")
+                         ->get_symbol("ShortCircuitAndUnresolved")
+                         ->calculate_address<void *>();
+    REQUIRE(!result_au);
+    auto result_ar = context.get_module("fuel")
+                         ->get_symbol("ShortCircuitAndResolved")
+                         ->calculate_address<void *>();
+    REQUIRE(result_ar);
+    REQUIRE((void *)result_ar.value() == (void *)2);
+    auto result_ou = context.get_module("fuel")
+                         ->get_symbol("ShortCircuitOrUnresolved")
+                         ->calculate_address<void *>();
+    REQUIRE(!result_ou);
+    auto result_or = context.get_module("fuel")
+                         ->get_symbol("ShortCircuitOrResolved")
+                         ->calculate_address<void *>();
+    REQUIRE(result_or);
+    REQUIRE((void *)result_or.value() == (void *)1);
 }
