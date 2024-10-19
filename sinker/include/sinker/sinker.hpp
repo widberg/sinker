@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <functional>
 #include <cassert>
+#include <sha256.hpp>
 
 namespace sinker
 {
@@ -158,7 +159,7 @@ namespace sinker
         Symbol *get_symbol(std::string_view symbol_name);
 
         void emplace_symbol(std::string const &name, std::string const &type);
-        void add_variant(std::string const &name, std::variant<std::string, std::shared_ptr<Expression>> const& variant_condition);
+        void add_variant(std::string const &name, std::variant<sha256_digest_t, std::shared_ptr<Expression>> const& variant_condition);
         bool has_variant(std::string_view name) const;
         void dump(std::ostream &out) const;
         void dump_def(std::ostream &out) const;
@@ -179,7 +180,7 @@ namespace sinker
         std::optional<expression_value_t> preferred_base_address;
         std::optional<expression_value_t> relocated_base_address;
         std::vector<Symbol> symbols;
-        std::vector<std::pair<std::string, std::variant<std::string, std::shared_ptr<Expression>>>> variants;
+        std::vector<std::pair<std::string, std::variant<sha256_digest_t, std::shared_ptr<Expression>>>> variants;
         std::string real_variant;
         HMODULE hModule = 0;
         identifier_set_t tags;

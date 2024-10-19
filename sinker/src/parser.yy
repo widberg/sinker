@@ -27,6 +27,7 @@
 #include <iostream>
 #include <filesystem>
 #include <istream>
+#include <sha256.hpp>
 
 #include <sinker/sinker.hpp>
 using namespace sinker;
@@ -99,7 +100,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<MaskedByte> PATTERN_BYTE
 %type<Type> TYPE type
 %type<std::shared_ptr<Expression>> expression
-%type<std::variant<std::string, std::shared_ptr<Expression>>> variant_condition
+%type<std::variant<sha256_digest_t, std::shared_ptr<Expression>>> variant_condition
 %type<bool> BOOL
 %type<attribute_value_t> attribute_value
 %type<PatternByteList> pattern_match_body pattern_byte_list
@@ -286,7 +287,12 @@ identifier_set
     ;
 
 variant_condition
-    : string { $$ = $1; }
+    : string
+    {
+        sha256_digest_t hash;
+        VERIFY(string_to_hash($1.c_str(), hash), @1, "Invalid hash");
+        $$ = hash;
+    }
     | expression { $$ = $1; }
     ;
 

@@ -6,7 +6,7 @@ add_library(sinker STATIC
 	src/parser.cpp
 )
 target_include_directories(sinker PUBLIC include)
-target_link_libraries(sinker hl++ detours)
+target_link_libraries(sinker sha256 detours)
 target_link_options(sinker INTERFACE /export:DetourFinishHelperProcess,@1,NONAME)
 
 if(SINKER_USE_SEH)

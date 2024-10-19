@@ -46,3 +46,6 @@ docs/build
 
 # idea
 .idea/
+
+# clangd
+/.cache/

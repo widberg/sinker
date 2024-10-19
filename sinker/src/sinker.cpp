@@ -1,3 +1,4 @@
+#include <array>
 #include <cassert>
 #include <windows.h>
 #include <cstdlib>
@@ -5,7 +6,7 @@
 #include <iostream>
 #include <filesystem>
 #include <istream>
-#include <hashlibpp.h>
+#include <sha256.hpp>
 
 #include <sinker/sinker.hpp>
 
@@ -162,7 +163,7 @@ namespace sinker
     {
         symbols.push_back(Symbol(name, type, this));
     }
-    void Module::add_variant(std::string const &name, std::variant<std::string, std::shared_ptr<Expression>> const& variant_condition)
+    void Module::add_variant(std::string const &name, std::variant<sha256_digest_t, std::shared_ptr<Expression>> const& variant_condition)
     {
         variants.push_back({name, variant_condition});
     }
@@ -199,8 +200,10 @@ namespace sinker
         for (auto variant : variants)
         {
             out << "variant " << name << ", " << variant.first << ", ";
-            if (std::string const* hash = std::get_if<std::string>(&variant.second)) {
-                out << '"' << *hash << "\"";
+            if (sha256_digest_t const* hash = std::get_if<sha256_digest_t>(&variant.second)) {
+                char hash_string[SHA256_STR_LENGTH];
+                hash_to_string(*hash, hash_string, sizeof(hash_string));
+                out << '"' << hash_string << "\"";
             } else if (std::shared_ptr<Expression> const* expression = std::get_if<std::shared_ptr<Expression>>(&variant.second)) {
                 out << **expression;
             }
@@ -295,30 +298,27 @@ namespace sinker
             return false;
         }
 
-        sha256wrapper sha256;
-
-        try
+        sha256_digest_t hash;
+        if (!sha256_file(path, hash))
         {
-            std::string hash = sha256.getHashFromFile(path);
-            for (auto variant : variants)
-            {
-                std::string const* expected_hash = std::get_if<std::string>(&variant.second);
-                if (expected_hash && *expected_hash == hash)
-                {
-                    real_variant = variant.first;
-                    break;
-                }
-                
-                std::shared_ptr<Expression> const* expression = std::get_if<std::shared_ptr<Expression>>(&variant.second);
-                if (expression && (*expression)->calculate(this).has_value()) {
-                    real_variant = variant.first;
-                    break;
-                }
-            }
-        } catch(hlException &e) {
-            std::cerr << "Error("  << e.error_number() << "): " << e.error_message() << std::endl;
             hModule = NULL;
             return false;
+        }
+
+        for (auto variant : variants)
+        {
+            sha256_digest_t const* expected_hash = std::get_if<sha256_digest_t>(&variant.second);
+            if (expected_hash && *expected_hash == hash)
+            {
+                real_variant = variant.first;
+                break;
+            }
+            
+            std::shared_ptr<Expression> const* expression = std::get_if<std::shared_ptr<Expression>>(&variant.second);
+            if (expression && (*expression)->calculate(this).has_value()) {
+                real_variant = variant.first;
+                break;
+            }
         }
 
         return true;

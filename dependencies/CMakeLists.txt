@@ -13,11 +13,8 @@ if(NOT TARGET detours)
     add_subdirectory(detours)
 endif()
 
-# hashlibpp
-if(NOT TARGET hl++)
-    add_subdirectory(hashlibpp)
-    target_include_directories(hl++ PUBLIC $<TARGET_PROPERTY:hl++,SOURCE_DIR>/src)
-endif()
+# sha256
+add_subdirectory(sha256)
 
 # re2c
 if(SINKER_BUILD_GRAMMAR)
