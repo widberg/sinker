@@ -2,6 +2,7 @@
 
 [![Build Status](https://github.com/widberg/sinker/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/widberg/sinker/actions/workflows/tests.yml)
 [![Documentation Status](https://readthedocs.org/projects/sinker/badge/?version=latest)](https://sinker.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/widberg/sinker/graph/badge.svg?token=T2D9TH8YDO)](https://codecov.io/gh/widberg/sinker)
 
 ```cpp
 //$ symbol game::CoreMainLoop, "void (__stdcall *)()";
