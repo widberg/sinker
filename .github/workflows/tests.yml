@@ -10,12 +10,28 @@ jobs:
     - uses: actions/checkout@v3
       with:
         submodules: recursive
+    
+    - name: Install OpenCppCoverage
+      run: |
+        choco install opencppcoverage
+        echo "C:\Program Files\OpenCppCoverage" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - uses: ilammy/msvc-dev-cmd@v1.12.0
       with:
         arch: win32
 
-    - name: Run Tests
+    - name: Run Release Tests
       run: |
-           cmake -B build -G Ninja -DSINKER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
-           cmake --build build --target check-sinker --config Release
+           cmake -B build-release -G Ninja -DSINKER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+           cmake --build build-release --target check-sinker --config Release
+
+    - name: Run Debug Tests and Coverage
+      run: |
+           cmake -B build-debug -G Ninja -DSINKER_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug
+           OpenCppCoverage --export_type cobertura:coverage.xml --modules sinker-tests* --sources "${{ github.workspace }}\sinker*" --cover_children -- cmake --build build-debug --target check-sinker --config Debug
+
+    - uses: codecov/codecov-action@v4
+      with:
+        fail_ci_if_error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
