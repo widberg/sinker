@@ -1,4 +1,4 @@
-#include <cstdio>
+#include <cstdint>
 #include <sstream>
 #include <string>
 
@@ -25,7 +25,7 @@ TEST_CASE("Script FMTK Integration Test", "[script]") {
         R"?(module fuel;
 variant fuel, retail, "ac1b2077137b7c6299c344111857b032635fe3d4794bc5135dad7c35feeda856";
 symbol fuel::pGlobalCommandState, "const void**";
-address fuel::pGlobalCommandState, [retail], @10993792;
+address fuel::pGlobalCommandState, [retail], (@10993792);
 symbol fuel::CoreMainLoop, "void (__stdcall *)()";
 tag fuel::CoreMainLoop, hook;
 address fuel::CoreMainLoop, [retail], @6851568;
@@ -167,14 +167,14 @@ TEST_CASE("Runtime CheckDereference", "[runtime]") {
     sinker::Context context;
 
     std::string input = R"?(module fuel;
-symbol fuel::pGlobalCommandState, "const void**";
-address fuel::pGlobalCommandState, [*], ptr*0;
+symbol fuel::pGlobalCommandState, "std::uint8_t const **";
+address fuel::pGlobalCommandState, [*], (u8*0);
 )?";
 
     REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
     REQUIRE_FALSE(context.get_module("fuel")
                       ->get_symbol("pGlobalCommandState")
-                      ->calculate_address<void const **>());
+                      ->calculate_address<std::uint8_t const **>());
 }
 
 TEST_CASE("Runtime Pattern Match Integration", "[runtime]") {
@@ -196,6 +196,10 @@ address fuel::pGlobalCommandState, [*], [fuel]{ "Houston, " &"we have a problem.
                       ->get_symbol("pGlobalCommandState")
                       ->calculate_address<char const *>();
     REQUIRE(result);
+    auto cached_result = context.get_module("fuel")
+                             ->get_symbol("pGlobalCommandState")
+                             ->get_cached_calculated_address<char const *>();
+    REQUIRE(cached_result == result);
     REQUIRE((void *)result.value() == (void *)(data + 9));
 }
 

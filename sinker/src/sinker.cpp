@@ -99,6 +99,8 @@ std::optional<expression_value_t> CheckedDereference(expression_value_t value,
 #endif
 
         switch (type) {
+        case Type::None:
+            return {};
         case Type::U8:
             return (expression_value_t) * (std::uint8_t *)(value);
         case Type::U16:

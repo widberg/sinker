@@ -66,7 +66,7 @@ template <std::size_t S, std::uint8_t C, bool D>
 StackCheck<S, C, D>::~StackCheck() {
     if constexpr (D) {
         if (!good()) {
-            throw std::runtime_error("Stack check failed");
+            __debugbreak();
         }
     }
 }
