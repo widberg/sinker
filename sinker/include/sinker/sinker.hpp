@@ -355,8 +355,14 @@ class BinaryOperatorExpression final : Expression {
         case BinaryOperator::MULTIPLICATION:
             return lhs_result.value() * rhs_result.value();
         case BinaryOperator::INTEGER_DIVISION:
+            if (rhs_result.value() == 0) {
+                return {};
+            }
             return lhs_result.value() / rhs_result.value();
         case BinaryOperator::MODULO:
+            if (rhs_result.value() == 0) {
+                return {};
+            }
             return lhs_result.value() % rhs_result.value();
         case BinaryOperator::BITWISE_AND:
             return lhs_result.value() & rhs_result.value();

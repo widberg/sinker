@@ -290,3 +290,30 @@ address fuel::ShortCircuitOrResolved, [*], ptr*0 || 1;
     REQUIRE(result_or);
     REQUIRE((void *)result_or.value() == (void *)1);
 }
+
+TEST_CASE("Runtime Division and Modulo by Zero", "[runtime]") {
+    sinker::Context context;
+
+    std::string input = R"?(module fuel;
+symbol fuel::DivisionByZero, "void *";
+address fuel::DivisionByZero, [*], 0 / 0;
+symbol fuel::ModuloByZero, "void *";
+address fuel::ModuloByZero, [*], 0 % 0;
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+
+    std::stringstream output;
+    context.dump(output);
+    REQUIRE(output.str() == input);
+
+    REQUIRE(context.get_module("fuel")->concretize());
+    auto result_dz = context.get_module("fuel")
+                         ->get_symbol("DivisionByZero")
+                         ->calculate_address<void *>();
+    REQUIRE(!result_dz);
+    auto result_mz = context.get_module("fuel")
+                         ->get_symbol("ModuloByZero")
+                         ->calculate_address<void *>();
+    REQUIRE(!result_mz);
+}

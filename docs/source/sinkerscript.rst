@@ -199,6 +199,8 @@ Mathematical Operations
 | ``expression / expression`` (Integer Division)
 | ``expression % expression`` (Modulo)
 
+Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker Script. Integer division and modulo by zero will evaluate to unresolved.
+
 Bitwise Operations
 """"""""""""""""""
 
@@ -208,8 +210,6 @@ Bitwise Operations
 | ``expression ^ expression`` (Bitwise XOR)
 | ``expression | expression`` (Bitwise OR)
 | ``~expression`` (Bitwise NOT)
-
-Mathematical operations are applied as if the expressions are integers; there is no pointer arithmetic in Sinker Script.
 
 Short-Circuit Operations
 """"""""""""""""""""""""
