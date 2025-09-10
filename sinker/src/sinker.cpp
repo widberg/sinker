@@ -61,73 +61,47 @@ char const *TypeToString(Type type) {
     return nullptr;
 }
 
+template <typename T>
+std::optional<expression_value_t>
+CheckedDereferenceT(expression_value_t value) {
+    T result = {};
+    SIZE_T in_size = sizeof(result);
+    SIZE_T out_size = 0;
+
+    BOOL success = ReadProcessMemory(GetCurrentProcess(), (LPCVOID)value,
+                                     &result, in_size, &out_size);
+
+    if (success && in_size == out_size) {
+        return static_cast<expression_value_t>(result);
+    }
+
+    return {};
+}
+
 std::optional<expression_value_t> CheckedDereference(expression_value_t value,
                                                      Type type) {
-    if (type == Type::None) {
-        assert(!"Cannot dereference None type");
-    }
-
-#ifdef SINKER_USE_SEH
-    __try {
-#else
-    MEMORY_BASIC_INFORMATION mbi;
-    std::size_t size = SizeOfType(type);
-    std::uintptr_t current_address = static_cast<std::uintptr_t>(value);
-    std::uintptr_t end_address = current_address + size;
-
-    while (current_address < end_address) {
-        if (VirtualQuery((LPCVOID)current_address, &mbi, sizeof(mbi)) == 0) {
-            return {};
-        }
-
-        if ((mbi.State != MEM_COMMIT) ||
-            !(mbi.Protect & (PAGE_READONLY | PAGE_READWRITE |
-                             PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE))) {
-            return {};
-        }
-
-        std::uintptr_t region_start =
-            reinterpret_cast<std::uintptr_t>(mbi.BaseAddress);
-        std::uintptr_t region_end = region_start + mbi.RegionSize;
-
-        if (end_address <= region_end) {
-            break;
-        }
-
-        current_address = region_end;
-    }
-#endif
-
-        switch (type) {
-        case Type::None:
-            return {};
-        case Type::U8:
-            return (expression_value_t) * (std::uint8_t *)(value);
-        case Type::U16:
-            return (expression_value_t) * (std::uint16_t *)(value);
-        case Type::U32:
-            return (expression_value_t) * (std::uint32_t *)(value);
-        case Type::U64:
-            return (expression_value_t) * (std::uint64_t *)(value);
-        case Type::I8:
-            return (expression_value_t) * (std::int8_t *)(value);
-        case Type::I16:
-            return (expression_value_t) * (std::int16_t *)(value);
-        case Type::I32:
-            return (expression_value_t) * (std::int32_t *)(value);
-        case Type::I64:
-            return (expression_value_t) * (std::int64_t *)(value);
-        case Type::PTR:
-            return (expression_value_t) * (void **)(value);
-        }
-
-#ifdef SINKER_USE_SEH
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    switch (type) {
+    case Type::U8:
+        return CheckedDereferenceT<std::uint8_t>(value);
+    case Type::U16:
+        return CheckedDereferenceT<std::uint16_t>(value);
+    case Type::U32:
+        return CheckedDereferenceT<std::uint32_t>(value);
+    case Type::U64:
+        return CheckedDereferenceT<std::uint64_t>(value);
+    case Type::I8:
+        return CheckedDereferenceT<std::int8_t>(value);
+    case Type::I16:
+        return CheckedDereferenceT<std::int16_t>(value);
+    case Type::I32:
+        return CheckedDereferenceT<std::int32_t>(value);
+    case Type::I64:
+        return CheckedDereferenceT<std::int64_t>(value);
+    case Type::PTR:
+        return CheckedDereferenceT<std::uintptr_t>(value);
+    default:
         return {};
     }
-#else
-    return {};
-#endif
 }
 
 std::ostream &operator<<(std::ostream &out,

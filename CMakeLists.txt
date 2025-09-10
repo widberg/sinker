@@ -21,7 +21,6 @@ project(sinker VERSION 0.0.1 LANGUAGES CXX)
 option(SINKER_BUILD_TESTS "Build tests" OFF)
 option(SINKER_BUILD_DOCS "Build docs" OFF)
 option(SINKER_BUILD_GRAMMAR "Build Sinker Script grammar" OFF)
-option(SINKER_USE_SEH "Use Structured Exception Handling" OFF)
 
 set(CMAKE_CXX_STANDARD 17 CACHE INTERNAL "")
 set(CMAKE_CXX_STANDARD_REQUIRED ON CACHE INTERNAL "")
