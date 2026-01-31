@@ -22,6 +22,7 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+#include <mutex>
 
 namespace sinker {
 
@@ -930,7 +931,7 @@ class StackCheck {
     ~StackCheck();
 
   private:
-    std::uint8_t buffer[S];
+    volatile std::uint8_t buffer[S];
 };
 
 class Installable {
@@ -1041,6 +1042,32 @@ class Transaction {
   private:
     std::vector<Action *> actions;
 };
+
+// TODO: Probably want a non-lazy wrapper too
+// Not sure we really want to include a lazy one when libraries exist for that
+// template<typename T, T *(*initializer)()>
+// class lazy {
+// public:
+//     operator T&() {
+//         std::call_once(flag_, &lazy::init, this);
+//         return *value_;
+//     }
+
+//     lazy() = default;
+
+//     lazy(const lazy&) = delete;
+//     lazy& operator=(const lazy&) = delete;
+//     lazy(lazy&&) = delete;
+//     lazy& operator=(lazy&&) = delete;
+
+// private:
+//     void init() const {
+//         value_ = initializer();
+//     }
+
+//     mutable std::once_flag flag_;
+//     mutable T* value_ = nullptr;
+// };
 
 // TODO: Implement
 // class Process {

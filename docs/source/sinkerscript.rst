@@ -164,7 +164,7 @@ A comma separated list of filters may be used. If the module in a filter has not
 Needle
 """"""
 
-Searches for the first occurrence of the pattern in the module text segment and evaluates to the address of the first byte of the matched pattern. If no match is found, the pattern match evaluates to unresolved. A needle contains a series of the following:
+Searches for the first occurrence of the pattern in the filtered memory and evaluates to the address of the first byte of the matched pattern. If no match is found, the pattern match evaluates to unresolved. A needle contains a series of the following:
 
 * ``XX`` a hexadecimal byte value with no prefix. The search byte must equal this value.
 * ``??`` the search byte may be equal to any value.
