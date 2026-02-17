@@ -6785,9 +6785,11 @@ yy152:
 		case '\v':
 		case '\f':
 		case ' ': goto yy156;
-		case '/': goto yy157;
+		case '\n': goto yy157;
+		case '\r': goto yy159;
+		case '/': goto yy160;
 		default:
-			if (lexer_state->lim <= lexer_state->cur) goto yy163;
+			if (lexer_state->lim <= lexer_state->cur) goto yy166;
 			goto yy154;
 	}
 yy154:
@@ -6801,35 +6803,25 @@ yy156:
 		case '\t':
 		case '\v':
 		case '\f':
-		case ' ': goto yy158;
-		case '/': goto yy160;
+		case ' ': goto yy161;
+		case '/': goto yy163;
 		default: goto yy155;
 	}
 yy157:
+	++lexer_state->cur;
+yy158:
+	{ loc.lines(); loc.step(); goto source; }
+yy159:
+	yych = *++lexer_state->cur;
+	switch (yych) {
+		case '\n': goto yy157;
+		default: goto yy158;
+	}
+yy160:
 	yych = *(lexer_state->mar = ++lexer_state->cur);
 	switch (yych) {
-		case '/': goto yy161;
+		case '/': goto yy164;
 		default: goto yy155;
-	}
-yy158:
-	yych = *++lexer_state->cur;
-	switch (yych) {
-		case 0x08:
-		case '\t':
-		case '\v':
-		case '\f':
-		case ' ': goto yy158;
-		case '/': goto yy160;
-		default: goto yy159;
-	}
-yy159:
-	lexer_state->cur = lexer_state->mar;
-	goto yy155;
-yy160:
-	yych = *++lexer_state->cur;
-	switch (yych) {
-		case '/': goto yy161;
-		default: goto yy159;
 	}
 yy161:
 	yych = *++lexer_state->cur;
@@ -6839,13 +6831,33 @@ yy161:
 		case '\v':
 		case '\f':
 		case ' ': goto yy161;
-		case '$': goto yy162;
-		default: goto yy159;
+		case '/': goto yy163;
+		default: goto yy162;
 	}
 yy162:
+	lexer_state->cur = lexer_state->mar;
+	goto yy155;
+yy163:
+	yych = *++lexer_state->cur;
+	switch (yych) {
+		case '/': goto yy164;
+		default: goto yy162;
+	}
+yy164:
+	yych = *++lexer_state->cur;
+	switch (yych) {
+		case 0x08:
+		case '\t':
+		case '\v':
+		case '\f':
+		case ' ': goto yy164;
+		case '$': goto yy165;
+		default: goto yy162;
+	}
+yy165:
 	++lexer_state->cur;
 	{ goto sinker; }
-yy163:
+yy166:
 	{ TOKEN(END_OF_FILE); }
 }
 
@@ -6859,30 +6871,30 @@ yy163:
 		case '\t':
 		case '\v':
 		case '\f':
-		case ' ': goto yy166;
-		case '\n': goto yy167;
-		case '\r': goto yy169;
+		case ' ': goto yy169;
+		case '\n': goto yy170;
+		case '\r': goto yy172;
 		default:
-			if (lexer_state->lim <= lexer_state->cur) goto yy170;
-			goto yy165;
+			if (lexer_state->lim <= lexer_state->cur) goto yy173;
+			goto yy168;
 	}
-yy165:
-	++lexer_state->cur;
-	{ loc.columns(); goto source_internal; }
-yy166:
-	++lexer_state->cur;
-	{ loc.columns(); goto source_internal; }
-yy167:
-	++lexer_state->cur;
 yy168:
-	{ loc.lines(); loc.step(); goto source; }
+	++lexer_state->cur;
+	{ loc.columns(); goto source_internal; }
 yy169:
+	++lexer_state->cur;
+	{ loc.columns(); goto source_internal; }
+yy170:
+	++lexer_state->cur;
+yy171:
+	{ loc.lines(); loc.step(); goto source; }
+yy172:
 	yych = *++lexer_state->cur;
 	switch (yych) {
-		case '\n': goto yy167;
-		default: goto yy168;
+		case '\n': goto yy170;
+		default: goto yy171;
 	}
-yy170:
+yy173:
 	{ TOKEN(END_OF_FILE); }
 }
 

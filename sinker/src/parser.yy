@@ -547,6 +547,7 @@ sinker::Parser::symbol_type sinker::yylex(LexerState *lexer_state)
         %{
         $                                  { TOKEN(END_OF_FILE); }
         [ \t\v\b\f]* "//" [ \t\v\b\f]* "$" { goto sinker; }
+        "\r\n"|[\r\n]                      { loc.lines(); loc.step(); goto source; }
         *                                  { loc.columns(); goto source_internal; }
         %}
     source_internal:

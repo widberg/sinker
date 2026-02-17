@@ -96,6 +96,21 @@ address xlive::ValidateMemory, [v3_5_95_0], @5191347;
     REQUIRE(output.str() == input);
 }
 
+TEST_CASE("Script FROR Integration Test", "[script]") {
+    sinker::Context context;
+
+    std::string input =
+        R"?(
+//$ module fror;
+//$ variant fror, retail, "52243336dbc22c37bdf7b16151b0518a14e53e41d502932362972359be77eb9a";
+//$ symbol fror::WinMain, "WinMain_t";
+//$ tag fror::WinMain, hook;
+//$ address fror::WinMain, [retail], @0x004ECB80;
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SOURCE_CODE, "fror.skr"));
+}
+
 TEST_CASE("Script Pattern Match", "[script]") {
     sinker::Context context;
 
