@@ -88,35 +88,35 @@ class Context {
     Module *get_module(std::string_view module_name);
     UserOp *get_user_op(std::string_view user_op_name);
 
-    void emplace_module(std::string_view name,
-                        std::optional<std::string> lpModuleName);
+    Module *emplace_module(std::string_view name,
+                           std::optional<std::string> lpModuleName);
     template <typename... Args>
-    void emplace_user_op(std::string_view name,
-                        expression_value_t(__cdecl *fn)(Args...)) {
+    UserOp *emplace_user_op(std::string_view name,
+                            expression_value_t(__cdecl *fn)(Args...)) {
         static_assert((std::is_same_v<std::remove_cv_t<std::remove_reference_t<Args>>,
                                       expression_value_t> &&
                        ...),
                       "User op arguments must be expression_value_t");
         static_assert(sizeof...(Args) <= USER_OP_MAX_ARITY,
                       "User op has too many fixed arguments");
-        emplace_user_op_impl(name,
-                             reinterpret_cast<expression_value_t(__cdecl *)(...)>(
-                                 fn),
-                             sizeof...(Args), sizeof...(Args));
+        return emplace_user_op_impl(
+            name,
+            reinterpret_cast<expression_value_t(__cdecl *)(...)>(fn),
+            sizeof...(Args), sizeof...(Args));
     }
     template <typename... Args>
-    void emplace_user_op(std::string_view name,
-                         expression_value_t(__cdecl *fn)(Args..., ...)) {
+    UserOp *emplace_user_op(std::string_view name,
+                            expression_value_t(__cdecl *fn)(Args..., ...)) {
         static_assert((std::is_same_v<std::remove_cv_t<std::remove_reference_t<Args>>,
                                       expression_value_t> &&
                        ...),
                       "User op arguments must be expression_value_t");
         static_assert(sizeof...(Args) <= USER_OP_MAX_ARITY,
                       "User op has too many fixed arguments");
-        emplace_user_op_impl(name,
-                             reinterpret_cast<expression_value_t(__cdecl *)(...)>(
-                                 fn),
-                             sizeof...(Args), USER_OP_MAX_ARITY);
+        return emplace_user_op_impl(
+            name,
+            reinterpret_cast<expression_value_t(__cdecl *)(...)>(fn),
+            sizeof...(Args), USER_OP_MAX_ARITY);
     }
     void dump(std::ostream &out) const;
     void dump_def(std::ostream &out) const;
@@ -132,10 +132,10 @@ class Context {
     ~Context();
 
   private:
-    void emplace_user_op_impl(std::string_view name,
-                              expression_value_t(__cdecl *fn)(...),
-                              std::size_t min_arity,
-                              std::optional<std::size_t> max_arity);
+    UserOp *emplace_user_op_impl(std::string_view name,
+                                 expression_value_t(__cdecl *fn)(...),
+                                 std::size_t min_arity,
+                                 std::optional<std::size_t> max_arity);
     std::vector<Module *> modules;
     std::vector<UserOp *> user_ops;
     identifier_set_t module_tags;
@@ -193,7 +193,7 @@ class Module : public Attributable {
     std::string const &get_real_variant() const;
     Symbol *get_symbol(std::string_view symbol_name);
 
-    void emplace_symbol(std::string const &name, std::string const &type);
+    Symbol *emplace_symbol(std::string const &name, std::string const &type);
     void
     add_variant(std::string const &name,
                 std::variant<sha256_digest_t, std::shared_ptr<Expression>> const

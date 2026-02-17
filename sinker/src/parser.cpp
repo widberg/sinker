@@ -42,10 +42,12 @@
 // "%code requires" blocks.
 
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <filesystem>
 #include <istream>
+#include <string>
 #include <sha256.hpp>
 
 #include <sinker/sinker.hpp>
@@ -2531,9 +2533,32 @@ switch (yykind)
 namespace sinker { Parser::symbol_type yylex(LexerState *lexer_state); }
 static sinker::location loc;
 
+template<typename... Args>
+static std::string format_verify_message(char const *format, Args... args) {
+    int needed = std::snprintf(nullptr, 0, format, args...);
+    if (needed < 0) {
+        return "Failed to format parser error message";
+    }
+    std::string message(static_cast<std::size_t>(needed), '\0');
+    std::snprintf(message.data(), message.size() + 1, format, args...);
+    return message;
+}
+
+static std::string describe_user_op_arity(UserOp const *user_op) {
+    std::size_t min_arity = user_op->get_min_arity();
+    if (std::optional<std::size_t> max_arity = user_op->get_max_arity()) {
+        if (min_arity == max_arity.value()) {
+            return format_verify_message("%zu", min_arity);
+        }
+        return format_verify_message("between %zu and %zu", min_arity,
+                                     max_arity.value());
+    }
+    return format_verify_message("at least %zu", min_arity);
+}
+
 #define TOKEN(name) do { return sinker::Parser::make_##name(loc); } while(0)
 #define TOKENV(name, ...) do { return sinker::Parser::make_##name(__VA_ARGS__, loc); } while(0)
-#define VERIFY(cond, loc, msg) do { if (!(cond)) { sinker::Parser::error(loc, msg); YYERROR; } } while(0)
+#define VERIFY(cond, loc, ...) do { if (!(cond)) { sinker::Parser::error(loc, format_verify_message(__VA_ARGS__)); YYERROR; } } while(0)
 
 
 
@@ -3425,23 +3450,27 @@ lexer_state->in_pattern_match_expression = false;
 
   case 27: // expression: '!' IDENTIFIER "::" IDENTIFIER
     {
-        VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module does not exist");
-        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[0].value.as < std::string > ()));
+        Module *module = ctx->get_module(yystack_[2].value.as < std::string > ());
+        VERIFY(module, yystack_[2].location, "Module does not exist: %s", yystack_[2].value.as < std::string > ().c_str());
+        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(module, yystack_[0].value.as < std::string > ()));
     }
     break;
 
   case 28: // expression: IDENTIFIER
     {
-        VERIFY(ctx->get_module(yystack_[0].value.as < std::string > ()), yystack_[0].location, "Module does not exist");
-        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new ModuleExpression(ctx->get_module(yystack_[0].value.as < std::string > ())));
+        Module *module = ctx->get_module(yystack_[0].value.as < std::string > ());
+        VERIFY(module, yystack_[0].location, "Module does not exist: %s", yystack_[0].value.as < std::string > ().c_str());
+        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new ModuleExpression(module));
     }
     break;
 
   case 29: // expression: IDENTIFIER "::" IDENTIFIER
     {
-        VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module does not exist");
-        VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ())->get_symbol(yystack_[0].value.as < std::string > ()), yystack_[0].location, "Symbol does not exist");
-        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module(yystack_[2].value.as < std::string > ())->get_symbol(yystack_[0].value.as < std::string > ())));
+        Module *module = ctx->get_module(yystack_[2].value.as < std::string > ());
+        VERIFY(module, yystack_[2].location, "Module does not exist: %s", yystack_[2].value.as < std::string > ().c_str());
+        Symbol *symbol = module->get_symbol(yystack_[0].value.as < std::string > ());
+        VERIFY(symbol, yystack_[0].location, "Symbol does not exist: %s::%s", yystack_[2].value.as < std::string > ().c_str(), yystack_[0].value.as < std::string > ().c_str());
+        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new SymbolExpression(symbol));
     }
     break;
 
@@ -3462,9 +3491,11 @@ lexer_state->in_pattern_match_expression = false;
   case 33: // expression: IDENTIFIER '(' expression_list ')'
     {
         UserOp *user_op = ctx->get_user_op(yystack_[3].value.as < std::string > ());
-        VERIFY(user_op, yystack_[3].location, "UserOp does not exist");
+        VERIFY(user_op, yystack_[3].location, "UserOp does not exist: %s", yystack_[3].value.as < std::string > ().c_str());
         VERIFY(user_op->accepts_arity(yystack_[1].value.as < expression_list_t > ().size()), yystack_[1].location,
-               "UserOp argument count does not match signature");
+               "UserOp '%s' argument count mismatch: got %zu, expected %s",
+               yystack_[3].value.as < std::string > ().c_str(), yystack_[1].value.as < expression_list_t > ().size(),
+               describe_user_op_arity(user_op).c_str());
         yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new UserOpExpression(user_op, yystack_[1].value.as < expression_list_t > ()));
     }
     break;
@@ -3494,15 +3525,17 @@ lexer_state->in_pattern_match_expression = false;
 
   case 38: // pattern_match_filter_atom: IDENTIFIER
     {
-        VERIFY(ctx->get_module(yystack_[0].value.as < std::string > ()), yystack_[0].location, "Module does not exist");
-        yylhs.value.as < PatternMatchFilter > () = PatternMatchFilter(ctx->get_module(yystack_[0].value.as < std::string > ()));
+        Module *module = ctx->get_module(yystack_[0].value.as < std::string > ());
+        VERIFY(module, yystack_[0].location, "Module does not exist: %s", yystack_[0].value.as < std::string > ().c_str());
+        yylhs.value.as < PatternMatchFilter > () = PatternMatchFilter(module);
     }
     break;
 
   case 39: // pattern_match_filter_atom: IDENTIFIER "::" string
     {
-        VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module does not exist");
-        yylhs.value.as < PatternMatchFilter > () = PatternMatchFilter(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[0].value.as < std::string > ());
+        Module *module = ctx->get_module(yystack_[2].value.as < std::string > ());
+        VERIFY(module, yystack_[2].location, "Module does not exist: %s", yystack_[2].value.as < std::string > ().c_str());
+        yylhs.value.as < PatternMatchFilter > () = PatternMatchFilter(module, yystack_[0].value.as < std::string > ());
     }
     break;
 
@@ -3512,12 +3545,18 @@ lexer_state->in_pattern_match_expression = false;
 
   case 41: // pattern_match_body: pattern_byte_list ':' pattern_byte_list
     {
-        VERIFY(yystack_[2].value.as < PatternByteList > ().size() == yystack_[0].value.as < PatternByteList > ().size(), yystack_[0].location, "Mask size does not match needle size");
-        VERIFY(!yystack_[0].value.as < PatternByteList > ().offset, yystack_[0].location, "Mask cannot have an offset");
+        VERIFY(yystack_[2].value.as < PatternByteList > ().size() == yystack_[0].value.as < PatternByteList > ().size(), yystack_[0].location,
+               "Mask size does not match needle size: needle=%zu, mask=%zu",
+               yystack_[2].value.as < PatternByteList > ().size(), yystack_[0].value.as < PatternByteList > ().size());
+        VERIFY(!yystack_[0].value.as < PatternByteList > ().offset, yystack_[0].location, "Mask cannot have an offset ('&' not allowed in mask)");
         yylhs.value.as < PatternByteList > () = yystack_[2].value.as < PatternByteList > ();
         for (unsigned int i = 0; i < yystack_[2].value.as < PatternByteList > ().size(); i++) {
-            VERIFY(yystack_[2].value.as < PatternByteList > ()[i].mask == 0xFF, yystack_[2].location, "If a mask is present, the needle must not contain wildcards");
-            VERIFY(yystack_[0].value.as < PatternByteList > ()[i].mask == 0xFF, yystack_[0].location, "Masks must not contain wildcards");
+            VERIFY(yystack_[2].value.as < PatternByteList > ()[i].mask == 0xFF, yystack_[2].location,
+                   "If a mask is present, the needle must not contain wildcards (index %u)",
+                   i);
+            VERIFY(yystack_[0].value.as < PatternByteList > ()[i].mask == 0xFF, yystack_[0].location,
+                   "Masks must not contain wildcards (index %u)",
+                   i);
             yylhs.value.as < PatternByteList > ()[i].mask = yystack_[0].value.as < PatternByteList > ()[i].value;
         }
         yylhs.value.as < PatternByteList > ().offset = yystack_[2].value.as < PatternByteList > ().offset;
@@ -3545,7 +3584,7 @@ lexer_state->in_pattern_match_expression = false;
 
   case 46: // pattern_byte_list: pattern_byte_list '&'
     {
-        VERIFY(!yystack_[1].value.as < PatternByteList > ().offset, yystack_[0].location, "Offset cannot be set twice");
+        VERIFY(!yystack_[1].value.as < PatternByteList > ().offset, yystack_[0].location, "Offset cannot be set twice in a pattern");
         yystack_[1].value.as < PatternByteList > ().offset = yystack_[1].value.as < PatternByteList > ().size();
         yylhs.value.as < PatternByteList > () = yystack_[1].value.as < PatternByteList > ();
     }
@@ -3553,7 +3592,8 @@ lexer_state->in_pattern_match_expression = false;
 
   case 47: // pattern_byte_list: pattern_byte_list STRING string_modifiers
     {
-        VERIFY((yystack_[0].value.as < StringModifiers > ().ascii == false && yystack_[0].value.as < StringModifiers > ().wide == false) || (yystack_[0].value.as < StringModifiers > ().ascii != yystack_[0].value.as < StringModifiers > ().wide), yystack_[0].location, "String cannot be both wide and ascii");
+        VERIFY((yystack_[0].value.as < StringModifiers > ().ascii == false && yystack_[0].value.as < StringModifiers > ().wide == false) || (yystack_[0].value.as < StringModifiers > ().ascii != yystack_[0].value.as < StringModifiers > ().wide), yystack_[0].location,
+               "String cannot be both wide and ascii");
         for (char c : yystack_[1].value.as < std::string > ()) {
             if (!yystack_[0].value.as < StringModifiers > ().wide) {
                 yystack_[2].value.as < PatternByteList > ().push_back({ (std::uint8_t)c, 0xFF });
@@ -3609,7 +3649,7 @@ lexer_state->in_pattern_match_expression = false;
   case 58: // variant_condition: string
     {
         sha256_digest_t hash;
-        VERIFY(string_to_hash(yystack_[0].value.as < std::string > ().c_str(), hash), yystack_[0].location, "Invalid hash");
+        VERIFY(string_to_hash(yystack_[0].value.as < std::string > ().c_str(), hash), yystack_[0].location, "Invalid SHA256 hash: %s", yystack_[0].value.as < std::string > ().c_str());
         yylhs.value.as < std::variant<sha256_digest_t, std::shared_ptr<Expression>> > () = hash;
     }
     break;
@@ -3632,69 +3672,78 @@ lexer_state->in_pattern_match_expression = false;
 
   case 63: // stmt: "module" IDENTIFIER ',' string
     {
-        VERIFY(!ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module exists");
-        ctx->emplace_module(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::string > ());
+        VERIFY(ctx->emplace_module(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::string > ()), yystack_[2].location, "Module already exists: %s", yystack_[2].value.as < std::string > ().c_str());
     }
     break;
 
   case 64: // stmt: "module" IDENTIFIER
     {
-        VERIFY(!ctx->get_module(yystack_[0].value.as < std::string > ()), yystack_[0].location, "Module exists");
-        ctx->emplace_module(yystack_[0].value.as < std::string > (), {});
+        VERIFY(ctx->emplace_module(yystack_[0].value.as < std::string > (), {}), yystack_[0].location, "Module already exists: %s", yystack_[0].value.as < std::string > ().c_str());
     }
     break;
 
   case 65: // stmt: "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition
     {
-        VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
-        VERIFY(!ctx->get_module(yystack_[4].value.as < std::string > ())->has_variant(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Variant exists");
-        ctx->get_module(yystack_[4].value.as < std::string > ())->add_variant(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::variant<sha256_digest_t, std::shared_ptr<Expression>> > ());
+        Module *module = ctx->get_module(yystack_[4].value.as < std::string > ());
+        VERIFY(module, yystack_[4].location, "Module does not exist: %s", yystack_[4].value.as < std::string > ().c_str());
+        VERIFY(!module->has_variant(yystack_[2].value.as < std::string > ()), yystack_[2].location,
+               "Variant already exists: %s::%s", yystack_[4].value.as < std::string > ().c_str(), yystack_[2].value.as < std::string > ().c_str());
+        module->add_variant(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::variant<sha256_digest_t, std::shared_ptr<Expression>> > ());
     }
     break;
 
   case 66: // stmt: "symbol" IDENTIFIER "::" IDENTIFIER ',' string
     {
-        VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
-        VERIFY(!ctx->get_module(yystack_[4].value.as < std::string > ())->get_symbol(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Symbol exists");
-        ctx->get_module(yystack_[4].value.as < std::string > ())->emplace_symbol(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::string > ());
+        Module *module = ctx->get_module(yystack_[4].value.as < std::string > ());
+        VERIFY(module, yystack_[4].location, "Module does not exist: %s", yystack_[4].value.as < std::string > ().c_str());
+        VERIFY(module->emplace_symbol(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::string > ()), yystack_[2].location,
+               "Symbol already exists: %s::%s", yystack_[4].value.as < std::string > ().c_str(), yystack_[2].value.as < std::string > ().c_str());
     }
     break;
 
   case 67: // stmt: "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression
     {
-        VERIFY(ctx->get_module(yystack_[8].value.as < std::string > ()), yystack_[8].location, "Module does not exist");
-        VERIFY(ctx->get_module(yystack_[8].value.as < std::string > ())->get_symbol(yystack_[6].value.as < std::string > ()), yystack_[6].location, "Symbol does not exist");
-        ctx->get_module(yystack_[8].value.as < std::string > ())->get_symbol(yystack_[6].value.as < std::string > ())->add_address(yystack_[3].value.as < identifier_set_t > (), yystack_[0].value.as < std::shared_ptr<Expression> > ());
+        Module *module = ctx->get_module(yystack_[8].value.as < std::string > ());
+        VERIFY(module, yystack_[8].location, "Module does not exist: %s", yystack_[8].value.as < std::string > ().c_str());
+        Symbol *symbol = module->get_symbol(yystack_[6].value.as < std::string > ());
+        VERIFY(symbol, yystack_[6].location, "Symbol does not exist: %s::%s", yystack_[8].value.as < std::string > ().c_str(), yystack_[6].value.as < std::string > ().c_str());
+        symbol->add_address(yystack_[3].value.as < identifier_set_t > (), yystack_[0].value.as < std::shared_ptr<Expression> > ());
     }
     break;
 
   case 68: // stmt: "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
-        VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
-        ctx->get_module(yystack_[4].value.as < std::string > ())->set_attribute(yystack_[2].value.as < std::string > (), yystack_[0].value.as < attribute_value_t > ());
+        Module *module = ctx->get_module(yystack_[4].value.as < std::string > ());
+        VERIFY(module, yystack_[4].location, "Module does not exist: %s", yystack_[4].value.as < std::string > ().c_str());
+        module->set_attribute(yystack_[2].value.as < std::string > (), yystack_[0].value.as < attribute_value_t > ());
     }
     break;
 
   case 69: // stmt: "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
-        VERIFY(ctx->get_module(yystack_[6].value.as < std::string > ()), yystack_[6].location, "Module does not exist");
-        VERIFY(ctx->get_module(yystack_[6].value.as < std::string > ())->get_symbol(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Symbol does not exist");
-        ctx->get_module(yystack_[6].value.as < std::string > ())->get_symbol(yystack_[4].value.as < std::string > ())->set_attribute(yystack_[2].value.as < std::string > (), yystack_[0].value.as < attribute_value_t > ());
+        Module *module = ctx->get_module(yystack_[6].value.as < std::string > ());
+        VERIFY(module, yystack_[6].location, "Module does not exist: %s", yystack_[6].value.as < std::string > ().c_str());
+        Symbol *symbol = module->get_symbol(yystack_[4].value.as < std::string > ());
+        VERIFY(symbol, yystack_[4].location, "Symbol does not exist: %s::%s", yystack_[6].value.as < std::string > ().c_str(), yystack_[4].value.as < std::string > ().c_str());
+        symbol->set_attribute(yystack_[2].value.as < std::string > (), yystack_[0].value.as < attribute_value_t > ());
     }
     break;
 
   case 70: // stmt: "tag" IDENTIFIER ',' IDENTIFIER
     {
-        VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module does not exist");
-        ctx->get_module(yystack_[2].value.as < std::string > ())->add_tag(yystack_[0].value.as < std::string > ());
+        Module *module = ctx->get_module(yystack_[2].value.as < std::string > ());
+        VERIFY(module, yystack_[2].location, "Module does not exist: %s", yystack_[2].value.as < std::string > ().c_str());
+        module->add_tag(yystack_[0].value.as < std::string > ());
     }
     break;
 
   case 71: // stmt: "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER
     {
-        VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
-        VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ())->get_symbol(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Symbol does not exist");
-        ctx->get_module(yystack_[4].value.as < std::string > ())->get_symbol(yystack_[2].value.as < std::string > ())->add_tag(yystack_[0].value.as < std::string > ());
+        Module *module = ctx->get_module(yystack_[4].value.as < std::string > ());
+        VERIFY(module, yystack_[4].location, "Module does not exist: %s", yystack_[4].value.as < std::string > ().c_str());
+        Symbol *symbol = module->get_symbol(yystack_[2].value.as < std::string > ());
+        VERIFY(symbol, yystack_[2].location, "Symbol does not exist: %s::%s", yystack_[4].value.as < std::string > ().c_str(), yystack_[2].value.as < std::string > ().c_str());
+        symbol->add_tag(yystack_[0].value.as < std::string > ());
     }
     break;
 
@@ -4259,14 +4308,14 @@ lexer_state->in_pattern_match_expression = false;
   const short
   Parser::yyrline_[] =
   {
-       0,   129,   129,   130,   131,   135,   136,   140,   141,   143,
-     144,   145,   146,   147,   149,   150,   151,   152,   153,   154,
-     155,   157,   159,   160,   161,   162,   163,   164,   169,   174,
-     180,   180,   180,   184,   195,   196,   203,   207,   215,   220,
-     228,   229,   244,   245,   246,   250,   255,   261,   274,   278,
-     279,   283,   284,   285,   289,   290,   294,   295,   299,   305,
-     309,   310,   311,   315,   320,   325,   331,   337,   343,   348,
-     354,   359
+       0,   154,   154,   155,   156,   160,   161,   165,   166,   168,
+     169,   170,   171,   172,   174,   175,   176,   177,   178,   179,
+     180,   182,   184,   185,   186,   187,   188,   189,   195,   201,
+     209,   209,   209,   213,   226,   227,   234,   238,   246,   252,
+     261,   262,   283,   284,   285,   289,   294,   300,   314,   318,
+     319,   323,   324,   325,   329,   330,   334,   335,   339,   345,
+     349,   350,   351,   355,   359,   363,   371,   378,   386,   392,
+     400,   406
   };
 
   void

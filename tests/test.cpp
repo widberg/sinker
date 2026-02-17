@@ -330,6 +330,22 @@ sinker::expression_value_t __cdecl baz(sinker::expression_value_t first, ...) {
     return first;
 }
 
+TEST_CASE("Duplicate Names Rejected", "[runtime]") {
+    sinker::Context context;
+
+    auto *first_module = context.emplace_module("fuel", {});
+    REQUIRE(first_module);
+    REQUIRE(context.emplace_module("fuel", {}) == nullptr);
+
+    auto *first_symbol = first_module->emplace_symbol("player", "void *");
+    REQUIRE(first_symbol);
+    REQUIRE(first_module->emplace_symbol("player", "void *") == nullptr);
+
+    auto *first_user_op = context.emplace_user_op("bar", bar);
+    REQUIRE(first_user_op);
+    REQUIRE(context.emplace_user_op("bar", bar) == nullptr);
+}
+
 TEST_CASE("UserOp", "[runtime]") {
     sinker::Context context;
 

@@ -23,10 +23,12 @@
 %code requires
 {
 #include <cstdlib>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <filesystem>
 #include <istream>
+#include <string>
 #include <sha256.hpp>
 
 #include <sinker/sinker.hpp>
@@ -65,9 +67,32 @@ struct PatternByteList : public std::vector<MaskedByte>
 namespace sinker { Parser::symbol_type yylex(LexerState *lexer_state); }
 static sinker::location loc;
 
+template<typename... Args>
+static std::string format_verify_message(char const *format, Args... args) {
+    int needed = std::snprintf(nullptr, 0, format, args...);
+    if (needed < 0) {
+        return "Failed to format parser error message";
+    }
+    std::string message(static_cast<std::size_t>(needed), '\0');
+    std::snprintf(message.data(), message.size() + 1, format, args...);
+    return message;
+}
+
+static std::string describe_user_op_arity(UserOp const *user_op) {
+    std::size_t min_arity = user_op->get_min_arity();
+    if (std::optional<std::size_t> max_arity = user_op->get_max_arity()) {
+        if (min_arity == max_arity.value()) {
+            return format_verify_message("%zu", min_arity);
+        }
+        return format_verify_message("between %zu and %zu", min_arity,
+                                     max_arity.value());
+    }
+    return format_verify_message("at least %zu", min_arity);
+}
+
 #define TOKEN(name) do { return sinker::Parser::make_##name(loc); } while(0)
 #define TOKENV(name, ...) do { return sinker::Parser::make_##name(__VA_ARGS__, loc); } while(0)
-#define VERIFY(cond, loc, msg) do { if (!(cond)) { sinker::Parser::error(loc, msg); YYERROR; } } while(0)
+#define VERIFY(cond, loc, ...) do { if (!(cond)) { sinker::Parser::error(loc, format_verify_message(__VA_ARGS__)); YYERROR; } } while(0)
 }//%code
 
 %initial-action
@@ -163,19 +188,23 @@ expression
     | expression "->" expression       { $$ = std::shared_ptr<Expression>((Expression*)new BinaryOperatorExpression($1, $3, BinaryOperator::POINTER_PATH, Type::None));    }
     | '!' IDENTIFIER "::" IDENTIFIER
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        $$ = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(ctx->get_module($2), $4));
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        $$ = std::shared_ptr<Expression>((Expression*)new GetProcAddressExpression(module, $4));
     }
     | IDENTIFIER
     {
-        VERIFY(ctx->get_module($1), @1, "Module does not exist");
-        $$ = std::shared_ptr<Expression>((Expression*)new ModuleExpression(ctx->get_module($1)));
+        Module *module = ctx->get_module($1);
+        VERIFY(module, @1, "Module does not exist: %s", $1.c_str());
+        $$ = std::shared_ptr<Expression>((Expression*)new ModuleExpression(module));
     }
     | IDENTIFIER "::" IDENTIFIER
     {
-        VERIFY(ctx->get_module($1), @1, "Module does not exist");
-        VERIFY(ctx->get_module($1)->get_symbol($3), @3, "Symbol does not exist");
-        $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(ctx->get_module($1)->get_symbol($3)));
+        Module *module = ctx->get_module($1);
+        VERIFY(module, @1, "Module does not exist: %s", $1.c_str());
+        Symbol *symbol = module->get_symbol($3);
+        VERIFY(symbol, @3, "Symbol does not exist: %s::%s", $1.c_str(), $3.c_str());
+        $$ = std::shared_ptr<Expression>((Expression*)new SymbolExpression(symbol));
     }
     | pattern_match_filter '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_body {lexer_state->in_pattern_match_expression = false;} '}'
     {
@@ -184,9 +213,11 @@ expression
     | IDENTIFIER '(' expression_list ')' %prec USEROP_CALL
     {
         UserOp *user_op = ctx->get_user_op($1);
-        VERIFY(user_op, @1, "UserOp does not exist");
+        VERIFY(user_op, @1, "UserOp does not exist: %s", $1.c_str());
         VERIFY(user_op->accepts_arity($3.size()), @3,
-               "UserOp argument count does not match signature");
+               "UserOp '%s' argument count mismatch: got %zu, expected %s",
+               $1.c_str(), $3.size(),
+               describe_user_op_arity(user_op).c_str());
         $$ = std::shared_ptr<Expression>((Expression*)new UserOpExpression(user_op, $3));
     }
     ;
@@ -214,13 +245,15 @@ pattern_match_filter_list
 pattern_match_filter_atom
     : IDENTIFIER
     {
-        VERIFY(ctx->get_module($1), @1, "Module does not exist");
-        $$ = PatternMatchFilter(ctx->get_module($1));
+        Module *module = ctx->get_module($1);
+        VERIFY(module, @1, "Module does not exist: %s", $1.c_str());
+        $$ = PatternMatchFilter(module);
     }
     | IDENTIFIER "::" string
     {
-        VERIFY(ctx->get_module($1), @1, "Module does not exist");
-        $$ = PatternMatchFilter(ctx->get_module($1), $3);
+        Module *module = ctx->get_module($1);
+        VERIFY(module, @1, "Module does not exist: %s", $1.c_str());
+        $$ = PatternMatchFilter(module, $3);
     }
     ;
 
@@ -228,12 +261,18 @@ pattern_match_body
     : pattern_byte_list
     | pattern_byte_list ':' pattern_byte_list
     {
-        VERIFY($1.size() == $3.size(), @3, "Mask size does not match needle size");
-        VERIFY(!$3.offset, @3, "Mask cannot have an offset");
+        VERIFY($1.size() == $3.size(), @3,
+               "Mask size does not match needle size: needle=%zu, mask=%zu",
+               $1.size(), $3.size());
+        VERIFY(!$3.offset, @3, "Mask cannot have an offset ('&' not allowed in mask)");
         $$ = $1;
         for (unsigned int i = 0; i < $1.size(); i++) {
-            VERIFY($1[i].mask == 0xFF, @1, "If a mask is present, the needle must not contain wildcards");
-            VERIFY($3[i].mask == 0xFF, @3, "Masks must not contain wildcards");
+            VERIFY($1[i].mask == 0xFF, @1,
+                   "If a mask is present, the needle must not contain wildcards (index %u)",
+                   i);
+            VERIFY($3[i].mask == 0xFF, @3,
+                   "Masks must not contain wildcards (index %u)",
+                   i);
             $$[i].mask = $3[i].value;
         }
         $$.offset = $1.offset;
@@ -254,13 +293,14 @@ pattern_byte_list
     }
     | pattern_byte_list '&'
     {
-        VERIFY(!$1.offset, @2, "Offset cannot be set twice");
+        VERIFY(!$1.offset, @2, "Offset cannot be set twice in a pattern");
         $1.offset = $1.size();
         $$ = $1;
     }
     | pattern_byte_list STRING string_modifiers
     {
-        VERIFY(($3.ascii == false && $3.wide == false) || ($3.ascii != $3.wide), @3, "String cannot be both wide and ascii");
+        VERIFY(($3.ascii == false && $3.wide == false) || ($3.ascii != $3.wide), @3,
+               "String cannot be both wide and ascii");
         for (char c : $2) {
             if (!$3.wide) {
                 $1.push_back({ (std::uint8_t)c, 0xFF });
@@ -299,7 +339,7 @@ variant_condition
     : string
     {
         sha256_digest_t hash;
-        VERIFY(string_to_hash($1.c_str(), hash), @1, "Invalid hash");
+        VERIFY(string_to_hash($1.c_str(), hash), @1, "Invalid SHA256 hash: %s", $1.c_str());
         $$ = hash;
     }
     | expression { $$ = $1; }
@@ -314,53 +354,62 @@ expression_list
 stmt
     : "module" IDENTIFIER ',' string
     {
-        VERIFY(!ctx->get_module($2), @2, "Module exists");
-        ctx->emplace_module($2, $4);
+        VERIFY(ctx->emplace_module($2, $4), @2, "Module already exists: %s", $2.c_str());
     }
     | "module" IDENTIFIER
     {
-        VERIFY(!ctx->get_module($2), @2, "Module exists");
-        ctx->emplace_module($2, {});
+        VERIFY(ctx->emplace_module($2, {}), @2, "Module already exists: %s", $2.c_str());
     }
     | "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        VERIFY(!ctx->get_module($2)->has_variant($4), @4, "Variant exists");
-        ctx->get_module($2)->add_variant($4, $6);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        VERIFY(!module->has_variant($4), @4,
+               "Variant already exists: %s::%s", $2.c_str(), $4.c_str());
+        module->add_variant($4, $6);
     }
     | "symbol" IDENTIFIER "::" IDENTIFIER ',' string
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        VERIFY(!ctx->get_module($2)->get_symbol($4), @4, "Symbol exists");
-        ctx->get_module($2)->emplace_symbol($4, $6);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        VERIFY(module->emplace_symbol($4, $6), @4,
+               "Symbol already exists: %s::%s", $2.c_str(), $4.c_str());
     }
     | "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
-        ctx->get_module($2)->get_symbol($4)->add_address($7, $10);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        Symbol *symbol = module->get_symbol($4);
+        VERIFY(symbol, @4, "Symbol does not exist: %s::%s", $2.c_str(), $4.c_str());
+        symbol->add_address($7, $10);
     }
     | "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        ctx->get_module($2)->set_attribute($4, $6);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        module->set_attribute($4, $6);
     }
     | "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
-        ctx->get_module($2)->get_symbol($4)->set_attribute($6, $8);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        Symbol *symbol = module->get_symbol($4);
+        VERIFY(symbol, @4, "Symbol does not exist: %s::%s", $2.c_str(), $4.c_str());
+        symbol->set_attribute($6, $8);
     }
     | "tag" IDENTIFIER ',' IDENTIFIER
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        ctx->get_module($2)->add_tag($4);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        module->add_tag($4);
     }
     | "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER
     {
-        VERIFY(ctx->get_module($2), @2, "Module does not exist");
-        VERIFY(ctx->get_module($2)->get_symbol($4), @4, "Symbol does not exist");
-        ctx->get_module($2)->get_symbol($4)->add_tag($6);
+        Module *module = ctx->get_module($2);
+        VERIFY(module, @2, "Module does not exist: %s", $2.c_str());
+        Symbol *symbol = module->get_symbol($4);
+        VERIFY(symbol, @4, "Symbol does not exist: %s::%s", $2.c_str(), $4.c_str());
+        symbol->add_tag($6);
     }
     ;
 

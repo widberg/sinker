@@ -124,8 +124,13 @@ Symbol *Module::get_symbol(std::string_view symbol_name) {
     }
     return nullptr;
 }
-void Module::emplace_symbol(std::string const &name, std::string const &type) {
+Symbol *Module::emplace_symbol(std::string const &name,
+                               std::string const &type) {
+    if (get_symbol(name)) {
+        return nullptr;
+    }
     symbols.push_back(Symbol(name, type, this));
+    return &symbols.back();
 }
 void Module::add_variant(
     std::string const &name,
@@ -387,15 +392,25 @@ Context::~Context() {
     }
 }
 
-void Context::emplace_module(std::string_view name,
-                             std::optional<std::string> lpModuleName) {
-    modules.push_back(new Module(name, lpModuleName, this));
+Module *Context::emplace_module(std::string_view name,
+                                std::optional<std::string> lpModuleName) {
+    if (get_module(name)) {
+        return nullptr;
+    }
+    Module *module = new Module(name, lpModuleName, this);
+    modules.push_back(module);
+    return module;
 }
 
-void Context::emplace_user_op_impl(
+UserOp *Context::emplace_user_op_impl(
     std::string_view name, expression_value_t(__cdecl *fn)(...),
     std::size_t min_arity, std::optional<std::size_t> max_arity) {
-    user_ops.push_back(new UserOp(name, fn, min_arity, max_arity));
+    if (get_user_op(name)) {
+        return nullptr;
+    }
+    UserOp *user_op = new UserOp(name, fn, min_arity, max_arity);
+    user_ops.push_back(user_op);
+    return user_op;
 }
 
 void Symbol::dump(std::ostream &out) const {
