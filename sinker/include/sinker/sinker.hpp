@@ -20,9 +20,10 @@
 #include <sha256.hpp>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
-#include <mutex>
 
 namespace sinker {
 
@@ -31,9 +32,13 @@ enum class Language {
     SOURCE_CODE,
 };
 
+class Expression;
+
 typedef unsigned long long expression_value_t;
 typedef std::variant<expression_value_t, bool, std::string> attribute_value_t;
 typedef std::set<std::string> identifier_set_t;
+typedef std::vector<std::shared_ptr<Expression>> expression_list_t;
+inline constexpr std::size_t USER_OP_MAX_ARITY = 64;
 
 std::ostream &operator<<(std::ostream &out,
                          attribute_value_t const &attribute_value);
@@ -72,6 +77,7 @@ class Attributable {
 };
 
 class Module;
+class UserOp;
 
 class Context {
   public:
@@ -80,9 +86,38 @@ class Context {
     Context &operator=(Context const &) = delete;
     std::vector<Module *> const &get_modules() const { return modules; }
     Module *get_module(std::string_view module_name);
+    UserOp *get_user_op(std::string_view user_op_name);
 
     void emplace_module(std::string_view name,
                         std::optional<std::string> lpModuleName);
+    template <typename... Args>
+    void emplace_user_op(std::string_view name,
+                        expression_value_t(__cdecl *fn)(Args...)) {
+        static_assert((std::is_same_v<std::remove_cv_t<std::remove_reference_t<Args>>,
+                                      expression_value_t> &&
+                       ...),
+                      "User op arguments must be expression_value_t");
+        static_assert(sizeof...(Args) <= USER_OP_MAX_ARITY,
+                      "User op has too many fixed arguments");
+        emplace_user_op_impl(name,
+                             reinterpret_cast<expression_value_t(__cdecl *)(...)>(
+                                 fn),
+                             sizeof...(Args), sizeof...(Args));
+    }
+    template <typename... Args>
+    void emplace_user_op(std::string_view name,
+                         expression_value_t(__cdecl *fn)(Args..., ...)) {
+        static_assert((std::is_same_v<std::remove_cv_t<std::remove_reference_t<Args>>,
+                                      expression_value_t> &&
+                       ...),
+                      "User op arguments must be expression_value_t");
+        static_assert(sizeof...(Args) <= USER_OP_MAX_ARITY,
+                      "User op has too many fixed arguments");
+        emplace_user_op_impl(name,
+                             reinterpret_cast<expression_value_t(__cdecl *)(...)>(
+                                 fn),
+                             sizeof...(Args), USER_OP_MAX_ARITY);
+    }
     void dump(std::ostream &out) const;
     void dump_def(std::ostream &out) const;
     bool interpret(std::istream &input_stream, Language language,
@@ -97,7 +132,12 @@ class Context {
     ~Context();
 
   private:
+    void emplace_user_op_impl(std::string_view name,
+                              expression_value_t(__cdecl *fn)(...),
+                              std::size_t min_arity,
+                              std::optional<std::size_t> max_arity);
     std::vector<Module *> modules;
+    std::vector<UserOp *> user_ops;
     identifier_set_t module_tags;
     identifier_set_t symbol_tags;
 };
@@ -189,6 +229,30 @@ class Module : public Attributable {
 };
 
 std::ostream &operator<<(std::ostream &os, Module const &module);
+
+class UserOp {
+    friend class Context;
+
+    public:
+        UserOp(UserOp const &) = default;
+        UserOp &operator=(UserOp const &) = default;
+        UserOp(UserOp &&) = default;
+        UserOp &operator=(UserOp &&mE) = default;
+        std::string const &get_name() const;
+        expression_value_t(__cdecl *get_fn() const)(...);
+        std::size_t get_min_arity() const;
+        std::optional<std::size_t> get_max_arity() const;
+        bool accepts_arity(std::size_t arity) const;
+    private:
+        UserOp(std::string_view name, expression_value_t(__cdecl *fn)(...),
+               std::size_t min_arity,
+               std::optional<std::size_t> max_arity)
+            : name(name), fn(fn), min_arity(min_arity), max_arity(max_arity) {}
+        std::string name;
+        expression_value_t(__cdecl *fn)(...);
+        std::size_t min_arity;
+        std::optional<std::size_t> max_arity;
+};
 
 #define PROPAGATE_UNRESOLVED(x)                                                \
     do {                                                                       \
@@ -919,6 +983,63 @@ class PatternMatchExpression final : Expression {
     std::vector<PatternMatchFilter> filters;
     std::vector<MaskedByte> needle;
     expression_value_t offset;
+};
+
+class UserOpExpression final : Expression {
+  public:
+    UserOpExpression(UserOp *user_op, expression_list_t args)
+        : user_op(user_op), args(args) {}
+    virtual std::optional<expression_value_t>
+    calculate(Module *module) const override {
+        std::vector<expression_value_t> resolved_args;
+        resolved_args.reserve(args.size());
+
+        for (auto const &arg : args) {
+            auto arg_result = arg->calculate(module);
+            PROPAGATE_UNRESOLVED(arg_result);
+            resolved_args.push_back(arg_result.value());
+        }
+
+        return invoke_with_runtime_arity(resolved_args);
+    }
+
+    virtual void dump(std::ostream &out) const override {
+        out << user_op->get_name() << '(';
+        for (std::size_t i = 0; i < args.size(); ++i) {
+            if (i != 0) {
+                out << ", ";
+            }
+            args[i]->dump(out);
+        }
+        out << ')';
+    }
+
+  private:
+    static constexpr std::size_t MAX_ARITY = USER_OP_MAX_ARITY;
+
+    template <std::size_t... I>
+    std::optional<expression_value_t>
+    invoke_with_indices(std::vector<expression_value_t> const &resolved_args,
+                        std::index_sequence<I...>) const {
+        return user_op->get_fn()(resolved_args[I]...);
+    }
+
+    template <std::size_t N = 0>
+    std::optional<expression_value_t>
+    invoke_with_runtime_arity(
+        std::vector<expression_value_t> const &resolved_args) const {
+        if (resolved_args.size() == N) {
+            return invoke_with_indices(resolved_args,
+                                       std::make_index_sequence<N>{});
+        }
+        if constexpr (N < MAX_ARITY) {
+            return invoke_with_runtime_arity<N + 1>(resolved_args);
+        }
+        return {};
+    }
+
+    UserOp *user_op;
+    expression_list_t args;
 };
 
 #undef PROPAGATE_UNRESOLVED

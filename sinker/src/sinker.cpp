@@ -354,15 +354,48 @@ Module *Context::get_module(std::string_view module_name) {
     return nullptr;
 }
 
+std::string const &UserOp::get_name() const { return name; }
+expression_value_t(__cdecl *UserOp::get_fn() const)(...) { return fn; }
+std::size_t UserOp::get_min_arity() const { return min_arity; }
+std::optional<std::size_t> UserOp::get_max_arity() const { return max_arity; }
+bool UserOp::accepts_arity(std::size_t arity) const {
+    if (arity < min_arity) {
+        return false;
+    }
+    if (max_arity && arity > max_arity.value()) {
+        return false;
+    }
+    return true;
+}
+
+UserOp *Context::get_user_op(std::string_view user_op_name) {
+    for (UserOp *user_op : user_ops) {
+        if (user_op_name == user_op->get_name()) {
+            return user_op;
+        }
+    }
+
+    return nullptr;
+}
+
 Context::~Context() {
     for (Module *module : modules) {
         delete module;
+    }
+    for (UserOp *user_op : user_ops) {
+        delete user_op;
     }
 }
 
 void Context::emplace_module(std::string_view name,
                              std::optional<std::string> lpModuleName) {
     modules.push_back(new Module(name, lpModuleName, this));
+}
+
+void Context::emplace_user_op_impl(
+    std::string_view name, expression_value_t(__cdecl *fn)(...),
+    std::size_t min_arity, std::optional<std::size_t> max_arity) {
+    user_ops.push_back(new UserOp(name, fn, min_arity, max_arity));
 }
 
 void Symbol::dump(std::ostream &out) const {

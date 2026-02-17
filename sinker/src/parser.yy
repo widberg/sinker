@@ -105,6 +105,7 @@ lexer_state->in_pattern_match_expression = false;
 %type<attribute_value_t> attribute_value
 %type<PatternByteList> pattern_match_body pattern_byte_list
 %type<identifier_set_t> identifier_set identifier_set_full
+%type<expression_list_t> expression_list
 %type<std::vector<PatternMatchFilter>> pattern_match_filter pattern_match_filter_list
 %type<PatternMatchFilter> pattern_match_filter_atom
 %type<StringModifiers> string_modifiers
@@ -118,7 +119,7 @@ lexer_state->in_pattern_match_expression = false;
 %left '+' '-'
 %left '*' '/' '%'
 %right INDIRECTION '@' '!' '~' "sizeof"
-%left '[' '{' "->"
+%left '[' '{' "->" USEROP_CALL
 
 %start slist
 
@@ -179,6 +180,14 @@ expression
     | pattern_match_filter '{' {lexer_state->in_pattern_match_expression = true;} pattern_match_body {lexer_state->in_pattern_match_expression = false;} '}'
     {
         $$ = std::shared_ptr<Expression>((Expression*)new PatternMatchExpression($4, $4.offset.value_or(0), $1));
+    }
+    | IDENTIFIER '(' expression_list ')' %prec USEROP_CALL
+    {
+        UserOp *user_op = ctx->get_user_op($1);
+        VERIFY(user_op, @1, "UserOp does not exist");
+        VERIFY(user_op->accepts_arity($3.size()), @3,
+               "UserOp argument count does not match signature");
+        $$ = std::shared_ptr<Expression>((Expression*)new UserOpExpression(user_op, $3));
     }
     ;
 
@@ -278,7 +287,7 @@ attribute_value
 
 identifier_set_full
     : IDENTIFIER                    { $$ = identifier_set_t {$1}; }
-    | identifier_set ',' IDENTIFIER { $$.insert($3); }
+    | identifier_set ',' IDENTIFIER { $$ = $1; $$.insert($3); }
     ;
 
 identifier_set
@@ -294,6 +303,12 @@ variant_condition
         $$ = hash;
     }
     | expression { $$ = $1; }
+    ;
+
+expression_list
+    : %empty                         { $$ = expression_list_t {}; }
+    | expression                     { $$ = expression_list_t {$1}; }
+    | expression_list ',' expression { $$ = $1; $$.push_back($3); }
     ;
 
 stmt

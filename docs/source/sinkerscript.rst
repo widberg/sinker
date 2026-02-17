@@ -180,6 +180,42 @@ The mask is optional. The needle and mask must be the same length. Wildcards in 
 
 * ``XX`` a hexadecimal byte value with no prefix. The needle and haystack will be AND'd with this value.
 
+UserOp Call
+^^^^^^^^^^^
+
+| ``user_op_name()``
+| ``user_op_name(argument_expression)``
+| ``user_op_name(argument_expression, ...)``
+
+A UserOp call invokes a host function that was registered on the runtime
+``Context`` with ``emplace_user_op``. The identifier used in the script must
+match the registered UserOp name exactly.
+
+Each argument is a normal Sinker expression. Arguments are evaluated before the
+call; if any argument is unresolved, the whole UserOp call is unresolved.
+
+UserOp functions operate on ``expression_value_t`` values and return an
+``expression_value_t`` result. In C++, this means a ``__cdecl`` function with
+zero or more ``expression_value_t`` parameters and a ``expression_value_t``
+return type.
+
+UserOp arity is validated during parsing based on how the UserOp was
+registered:
+
+* Fixed signature (for example
+``expression_value_t __cdecl Fn(expression_value_t a, expression_value_t b)``)
+requires exactly that many arguments.
+* Variadic signature (for example
+``expression_value_t __cdecl Fn(expression_value_t a, ...)``) requires at least
+the fixed arguments.
+
+Arity metadata is inferred from the registered C++ function pointer type, so
+argument count checks are always available for UserOp calls.
+
+UserOps are a convenient way to expose host APIs to scripts. For example, you
+can register Windows ``DecodePointer`` as a UserOp and call it directly from a
+Sinker expression.
+
 Operations
 ^^^^^^^^^^
 
@@ -265,6 +301,8 @@ Adapted from `C Operator Precedence <https://en.cppreference.com/w/c/language/op
 +============+================+=============================+===============+
 | 1          | | ``[]``       | | Array Subscripting        | Left-to-right |
 |            | | ``->``       | | Pointer Path              |               |
+|            | | ``{}``       | | Pattern Match             |               |
+|            | | ``()``       | | UserOp Call               |               |
 +------------+----------------+-----------------------------+---------------+
 | 2          | | ``!``        | | GetProcAddress            | Right-to-left |
 |            | | ``*``        | | Indirection (dereference) |               |

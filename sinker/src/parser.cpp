@@ -699,27 +699,30 @@ namespace sinker {
       // BOOL
       char dummy7[sizeof (bool)];
 
+      // expression_list
+      char dummy8[sizeof (expression_list_t)];
+
       // INTEGER
-      char dummy8[sizeof (expression_value_t)];
+      char dummy9[sizeof (expression_value_t)];
 
       // identifier_set_full
       // identifier_set
-      char dummy9[sizeof (identifier_set_t)];
+      char dummy10[sizeof (identifier_set_t)];
 
       // expression
-      char dummy10[sizeof (std::shared_ptr<Expression>)];
+      char dummy11[sizeof (std::shared_ptr<Expression>)];
 
       // IDENTIFIER
       // STRING
       // string
-      char dummy11[sizeof (std::string)];
+      char dummy12[sizeof (std::string)];
 
       // variant_condition
-      char dummy12[sizeof (std::variant<sha256_digest_t, std::shared_ptr<Expression>>)];
+      char dummy13[sizeof (std::variant<sha256_digest_t, std::shared_ptr<Expression>>)];
 
       // pattern_match_filter
       // pattern_match_filter_list
-      char dummy13[sizeof (std::vector<PatternMatchFilter>)];
+      char dummy14[sizeof (std::vector<PatternMatchFilter>)];
     };
 
     /// The size of the largest semantic type.
@@ -793,7 +796,8 @@ namespace sinker {
     SHORT_CIRCUIT_OR = 276,        // "||"
     WIDE = 277,                    // "wide"
     ASCII = 278,                   // "ascii"
-    INDIRECTION = 279              // INDIRECTION
+    INDIRECTION = 279,             // INDIRECTION
+    USEROP_CALL = 280              // USEROP_CALL
       };
       /// Backward compatibility alias (Bison 3.6).
       typedef token_kind_type yytokentype;
@@ -810,7 +814,7 @@ namespace sinker {
     {
       enum symbol_kind_type
       {
-        YYNTOKENS = 45, ///< Number of tokens.
+        YYNTOKENS = 46, ///< Number of tokens.
         S_YYEMPTY = -2,
         S_YYEOF = 0,                             // END_OF_FILE
         S_YYerror = 1,                           // error
@@ -850,31 +854,33 @@ namespace sinker {
         S_35_ = 35,                              // '~'
         S_36_ = 36,                              // '['
         S_37_ = 37,                              // '{'
-        S_38_ = 38,                              // ';'
-        S_39_ = 39,                              // '('
-        S_40_ = 40,                              // ')'
-        S_41_ = 41,                              // ']'
-        S_42_ = 42,                              // '}'
-        S_43_ = 43,                              // ','
-        S_44_ = 44,                              // ':'
-        S_YYACCEPT = 45,                         // $accept
-        S_slist = 46,                            // slist
-        S_type = 47,                             // type
-        S_expression = 48,                       // expression
-        S_49_1 = 49,                             // $@1
-        S_50_2 = 50,                             // $@2
-        S_pattern_match_filter = 51,             // pattern_match_filter
-        S_pattern_match_filter_list = 52,        // pattern_match_filter_list
-        S_pattern_match_filter_atom = 53,        // pattern_match_filter_atom
-        S_pattern_match_body = 54,               // pattern_match_body
-        S_string_modifiers = 55,                 // string_modifiers
-        S_pattern_byte_list = 56,                // pattern_byte_list
-        S_string = 57,                           // string
-        S_attribute_value = 58,                  // attribute_value
-        S_identifier_set_full = 59,              // identifier_set_full
-        S_identifier_set = 60,                   // identifier_set
-        S_variant_condition = 61,                // variant_condition
-        S_stmt = 62                              // stmt
+        S_USEROP_CALL = 38,                      // USEROP_CALL
+        S_39_ = 39,                              // ';'
+        S_40_ = 40,                              // '('
+        S_41_ = 41,                              // ')'
+        S_42_ = 42,                              // ']'
+        S_43_ = 43,                              // '}'
+        S_44_ = 44,                              // ','
+        S_45_ = 45,                              // ':'
+        S_YYACCEPT = 46,                         // $accept
+        S_slist = 47,                            // slist
+        S_type = 48,                             // type
+        S_expression = 49,                       // expression
+        S_50_1 = 50,                             // $@1
+        S_51_2 = 51,                             // $@2
+        S_pattern_match_filter = 52,             // pattern_match_filter
+        S_pattern_match_filter_list = 53,        // pattern_match_filter_list
+        S_pattern_match_filter_atom = 54,        // pattern_match_filter_atom
+        S_pattern_match_body = 55,               // pattern_match_body
+        S_string_modifiers = 56,                 // string_modifiers
+        S_pattern_byte_list = 57,                // pattern_byte_list
+        S_string = 58,                           // string
+        S_attribute_value = 59,                  // attribute_value
+        S_identifier_set_full = 60,              // identifier_set_full
+        S_identifier_set = 61,                   // identifier_set
+        S_variant_condition = 62,                // variant_condition
+        S_expression_list = 63,                  // expression_list
+        S_stmt = 64                              // stmt
       };
     };
 
@@ -939,6 +945,10 @@ namespace sinker {
 
       case symbol_kind::S_BOOL: // BOOL
         value.move< bool > (std::move (that.value));
+        break;
+
+      case symbol_kind::S_expression_list: // expression_list
+        value.move< expression_list_t > (std::move (that.value));
         break;
 
       case symbol_kind::S_INTEGER: // INTEGER
@@ -1091,6 +1101,20 @@ namespace sinker {
 #endif
 
 #if 201103L <= YY_CPLUSPLUS
+      basic_symbol (typename Base::kind_type t, expression_list_t&& v, location_type&& l)
+        : Base (t)
+        , value (std::move (v))
+        , location (std::move (l))
+      {}
+#else
+      basic_symbol (typename Base::kind_type t, const expression_list_t& v, const location_type& l)
+        : Base (t)
+        , value (v)
+        , location (l)
+      {}
+#endif
+
+#if 201103L <= YY_CPLUSPLUS
       basic_symbol (typename Base::kind_type t, expression_value_t&& v, location_type&& l)
         : Base (t)
         , value (std::move (v))
@@ -1226,6 +1250,10 @@ switch (yykind)
 
       case symbol_kind::S_BOOL: // BOOL
         value.template destroy< bool > ();
+        break;
+
+      case symbol_kind::S_expression_list: // expression_list
+        value.template destroy< expression_list_t > ();
         break;
 
       case symbol_kind::S_INTEGER: // INTEGER
@@ -1370,6 +1398,7 @@ switch (yykind)
                    || tok == 126
                    || tok == 91
                    || tok == 123
+                   || tok == token::USEROP_CALL
                    || tok == 59
                    || (40 <= tok && tok <= 41)
                    || tok == 93
@@ -1862,6 +1891,21 @@ switch (yykind)
         return symbol_type (token::INDIRECTION, l);
       }
 #endif
+#if 201103L <= YY_CPLUSPLUS
+      static
+      symbol_type
+      make_USEROP_CALL (location_type l)
+      {
+        return symbol_type (token::USEROP_CALL, std::move (l));
+      }
+#else
+      static
+      symbol_type
+      make_USEROP_CALL (const location_type& l)
+      {
+        return symbol_type (token::USEROP_CALL, l);
+      }
+#endif
 
 
     class context
@@ -1940,7 +1984,7 @@ switch (yykind)
     static const signed char yydefact_[];
 
     // YYPGOTO[NTERM-NUM].
-    static const short yypgoto_[];
+    static const signed char yypgoto_[];
 
     // YYDEFGOTO[NTERM-NUM].
     static const unsigned char yydefgoto_[];
@@ -1948,7 +1992,7 @@ switch (yykind)
     // YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
     // positive, shift that token.  If negative, reduce the rule whose
     // number is the opposite.  If YYTABLE_NINF, syntax error.
-    static const unsigned char yytable_[];
+    static const short yytable_[];
 
     static const short yycheck_[];
 
@@ -2192,8 +2236,8 @@ switch (yykind)
     /// Constants.
     enum
     {
-      yylast_ = 296,     ///< Last index in yytable_.
-      yynnts_ = 18,  ///< Number of nonterminal symbols.
+      yylast_ = 333,     ///< Last index in yytable_.
+      yynnts_ = 19,  ///< Number of nonterminal symbols.
       yyfinal_ = 2 ///< Termination state number.
     };
 
@@ -2217,15 +2261,15 @@ switch (yykind)
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,    34,     2,     2,     2,    31,    26,     2,
-      39,    40,    29,    27,    43,    28,     2,    30,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,    44,    38,
+      40,    41,    29,    27,    44,    28,     2,    30,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,    45,    39,
        2,     2,     2,     2,    33,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,    36,     2,    41,    25,     2,     2,     2,     2,     2,
+       2,    36,     2,    42,    25,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,    37,    24,    42,    35,     2,     2,     2,
+       2,     2,     2,    37,    24,    43,    35,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -2240,10 +2284,11 @@ switch (yykind)
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    22,    23,    32
+      15,    16,    17,    18,    19,    20,    21,    22,    23,    32,
+      38
     };
     // Last valid token kind.
-    const int code_max = 279;
+    const int code_max = 280;
 
     if (t <= 0)
       return symbol_kind::S_YYEOF;
@@ -2290,6 +2335,10 @@ switch (yykind)
 
       case symbol_kind::S_BOOL: // BOOL
         value.copy< bool > (YY_MOVE (that.value));
+        break;
+
+      case symbol_kind::S_expression_list: // expression_list
+        value.copy< expression_list_t > (YY_MOVE (that.value));
         break;
 
       case symbol_kind::S_INTEGER: // INTEGER
@@ -2379,6 +2428,10 @@ switch (yykind)
 
       case symbol_kind::S_BOOL: // BOOL
         value.move< bool > (YY_MOVE (s.value));
+        break;
+
+      case symbol_kind::S_expression_list: // expression_list
+        value.move< expression_list_t > (YY_MOVE (s.value));
         break;
 
       case symbol_kind::S_INTEGER: // INTEGER
@@ -2671,6 +2724,10 @@ namespace sinker {
         value.YY_MOVE_OR_COPY< bool > (YY_MOVE (that.value));
         break;
 
+      case symbol_kind::S_expression_list: // expression_list
+        value.YY_MOVE_OR_COPY< expression_list_t > (YY_MOVE (that.value));
+        break;
+
       case symbol_kind::S_INTEGER: // INTEGER
         value.YY_MOVE_OR_COPY< expression_value_t > (YY_MOVE (that.value));
         break;
@@ -2742,6 +2799,10 @@ namespace sinker {
 
       case symbol_kind::S_BOOL: // BOOL
         value.move< bool > (YY_MOVE (that.value));
+        break;
+
+      case symbol_kind::S_expression_list: // expression_list
+        value.move< expression_list_t > (YY_MOVE (that.value));
         break;
 
       case symbol_kind::S_INTEGER: // INTEGER
@@ -2817,6 +2878,10 @@ namespace sinker {
         value.copy< bool > (that.value);
         break;
 
+      case symbol_kind::S_expression_list: // expression_list
+        value.copy< expression_list_t > (that.value);
+        break;
+
       case symbol_kind::S_INTEGER: // INTEGER
         value.copy< expression_value_t > (that.value);
         break;
@@ -2887,6 +2952,10 @@ namespace sinker {
 
       case symbol_kind::S_BOOL: // BOOL
         value.move< bool > (that.value);
+        break;
+
+      case symbol_kind::S_expression_list: // expression_list
+        value.move< expression_list_t > (that.value);
         break;
 
       case symbol_kind::S_INTEGER: // INTEGER
@@ -3214,6 +3283,10 @@ lexer_state->in_pattern_match_expression = false;
         yylhs.value.emplace< bool > ();
         break;
 
+      case symbol_kind::S_expression_list: // expression_list
+        yylhs.value.emplace< expression_list_t > ();
+        break;
+
       case symbol_kind::S_INTEGER: // INTEGER
         yylhs.value.emplace< expression_value_t > ();
         break;
@@ -3386,48 +3459,58 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 33: // pattern_match_filter: %empty
+  case 33: // expression: IDENTIFIER '(' expression_list ')'
+    {
+        UserOp *user_op = ctx->get_user_op(yystack_[3].value.as < std::string > ());
+        VERIFY(user_op, yystack_[3].location, "UserOp does not exist");
+        VERIFY(user_op->accepts_arity(yystack_[1].value.as < expression_list_t > ().size()), yystack_[1].location,
+               "UserOp argument count does not match signature");
+        yylhs.value.as < std::shared_ptr<Expression> > () = std::shared_ptr<Expression>((Expression*)new UserOpExpression(user_op, yystack_[1].value.as < expression_list_t > ()));
+    }
+    break;
+
+  case 34: // pattern_match_filter: %empty
              { yylhs.value.as < std::vector<PatternMatchFilter> > () = {}; }
     break;
 
-  case 34: // pattern_match_filter: '[' pattern_match_filter_list ']'
+  case 35: // pattern_match_filter: '[' pattern_match_filter_list ']'
     {
         yylhs.value.as < std::vector<PatternMatchFilter> > () = yystack_[1].value.as < std::vector<PatternMatchFilter> > ();
     }
     break;
 
-  case 35: // pattern_match_filter_list: pattern_match_filter_atom
+  case 36: // pattern_match_filter_list: pattern_match_filter_atom
     {
         yylhs.value.as < std::vector<PatternMatchFilter> > () = { yystack_[0].value.as < PatternMatchFilter > () };
     }
     break;
 
-  case 36: // pattern_match_filter_list: pattern_match_filter_list ',' pattern_match_filter_atom
+  case 37: // pattern_match_filter_list: pattern_match_filter_list ',' pattern_match_filter_atom
     {
         yylhs.value.as < std::vector<PatternMatchFilter> > () = yystack_[2].value.as < std::vector<PatternMatchFilter> > ();
         yylhs.value.as < std::vector<PatternMatchFilter> > ().push_back(yystack_[0].value.as < PatternMatchFilter > ());
     }
     break;
 
-  case 37: // pattern_match_filter_atom: IDENTIFIER
+  case 38: // pattern_match_filter_atom: IDENTIFIER
     {
         VERIFY(ctx->get_module(yystack_[0].value.as < std::string > ()), yystack_[0].location, "Module does not exist");
         yylhs.value.as < PatternMatchFilter > () = PatternMatchFilter(ctx->get_module(yystack_[0].value.as < std::string > ()));
     }
     break;
 
-  case 38: // pattern_match_filter_atom: IDENTIFIER "::" string
+  case 39: // pattern_match_filter_atom: IDENTIFIER "::" string
     {
         VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module does not exist");
         yylhs.value.as < PatternMatchFilter > () = PatternMatchFilter(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[0].value.as < std::string > ());
     }
     break;
 
-  case 39: // pattern_match_body: pattern_byte_list
+  case 40: // pattern_match_body: pattern_byte_list
       { yylhs.value.as < PatternByteList > () = yystack_[0].value.as < PatternByteList > (); }
     break;
 
-  case 40: // pattern_match_body: pattern_byte_list ':' pattern_byte_list
+  case 41: // pattern_match_body: pattern_byte_list ':' pattern_byte_list
     {
         VERIFY(yystack_[2].value.as < PatternByteList > ().size() == yystack_[0].value.as < PatternByteList > ().size(), yystack_[0].location, "Mask size does not match needle size");
         VERIFY(!yystack_[0].value.as < PatternByteList > ().offset, yystack_[0].location, "Mask cannot have an offset");
@@ -3441,26 +3524,26 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 41: // string_modifiers: %empty
+  case 42: // string_modifiers: %empty
              { yylhs.value.as < StringModifiers > () = {}; }
     break;
 
-  case 42: // string_modifiers: string_modifiers "wide"
+  case 43: // string_modifiers: string_modifiers "wide"
                               { yylhs.value.as < StringModifiers > () = yystack_[1].value.as < StringModifiers > (); yylhs.value.as < StringModifiers > ().wide = true; }
     break;
 
-  case 43: // string_modifiers: string_modifiers "ascii"
+  case 44: // string_modifiers: string_modifiers "ascii"
                                { yylhs.value.as < StringModifiers > () = yystack_[1].value.as < StringModifiers > (); yylhs.value.as < StringModifiers > ().ascii = true; }
     break;
 
-  case 44: // pattern_byte_list: pattern_byte_list PATTERN_BYTE
+  case 45: // pattern_byte_list: pattern_byte_list PATTERN_BYTE
     {
         yystack_[1].value.as < PatternByteList > ().push_back(yystack_[0].value.as < MaskedByte > ());
         yylhs.value.as < PatternByteList > () = yystack_[1].value.as < PatternByteList > ();
     }
     break;
 
-  case 45: // pattern_byte_list: pattern_byte_list '&'
+  case 46: // pattern_byte_list: pattern_byte_list '&'
     {
         VERIFY(!yystack_[1].value.as < PatternByteList > ().offset, yystack_[0].location, "Offset cannot be set twice");
         yystack_[1].value.as < PatternByteList > ().offset = yystack_[1].value.as < PatternByteList > ().size();
@@ -3468,7 +3551,7 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 46: // pattern_byte_list: pattern_byte_list STRING string_modifiers
+  case 47: // pattern_byte_list: pattern_byte_list STRING string_modifiers
     {
         VERIFY((yystack_[0].value.as < StringModifiers > ().ascii == false && yystack_[0].value.as < StringModifiers > ().wide == false) || (yystack_[0].value.as < StringModifiers > ().ascii != yystack_[0].value.as < StringModifiers > ().wide), yystack_[0].location, "String cannot be both wide and ascii");
         for (char c : yystack_[1].value.as < std::string > ()) {
@@ -3483,47 +3566,47 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 47: // pattern_byte_list: %empty
+  case 48: // pattern_byte_list: %empty
              { yylhs.value.as < PatternByteList > () = PatternByteList(); }
     break;
 
-  case 48: // string: STRING
+  case 49: // string: STRING
                     { yylhs.value.as < std::string > () = yystack_[0].value.as < std::string > (); }
     break;
 
-  case 49: // string: string STRING
+  case 50: // string: string STRING
                     { yylhs.value.as < std::string > () = yystack_[1].value.as < std::string > () + yystack_[0].value.as < std::string > (); }
     break;
 
-  case 50: // attribute_value: INTEGER
+  case 51: // attribute_value: INTEGER
               { yylhs.value.as < attribute_value_t > () = attribute_value_t {yystack_[0].value.as < expression_value_t > ()}; }
     break;
 
-  case 51: // attribute_value: string
+  case 52: // attribute_value: string
               { yylhs.value.as < attribute_value_t > () = attribute_value_t {yystack_[0].value.as < std::string > ()}; }
     break;
 
-  case 52: // attribute_value: BOOL
+  case 53: // attribute_value: BOOL
               { yylhs.value.as < attribute_value_t > () = attribute_value_t {yystack_[0].value.as < bool > ()}; }
     break;
 
-  case 53: // identifier_set_full: IDENTIFIER
+  case 54: // identifier_set_full: IDENTIFIER
                                     { yylhs.value.as < identifier_set_t > () = identifier_set_t {yystack_[0].value.as < std::string > ()}; }
     break;
 
-  case 54: // identifier_set_full: identifier_set ',' IDENTIFIER
-                                    { yylhs.value.as < identifier_set_t > ().insert(yystack_[0].value.as < std::string > ()); }
+  case 55: // identifier_set_full: identifier_set ',' IDENTIFIER
+                                    { yylhs.value.as < identifier_set_t > () = yystack_[2].value.as < identifier_set_t > (); yylhs.value.as < identifier_set_t > ().insert(yystack_[0].value.as < std::string > ()); }
     break;
 
-  case 55: // identifier_set: identifier_set_full
+  case 56: // identifier_set: identifier_set_full
       { yylhs.value.as < identifier_set_t > () = yystack_[0].value.as < identifier_set_t > (); }
     break;
 
-  case 56: // identifier_set: '*'
+  case 57: // identifier_set: '*'
           { yylhs.value.as < identifier_set_t > () = identifier_set_t {}; }
     break;
 
-  case 57: // variant_condition: string
+  case 58: // variant_condition: string
     {
         sha256_digest_t hash;
         VERIFY(string_to_hash(yystack_[0].value.as < std::string > ().c_str(), hash), yystack_[0].location, "Invalid hash");
@@ -3531,25 +3614,37 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 58: // variant_condition: expression
+  case 59: // variant_condition: expression
                  { yylhs.value.as < std::variant<sha256_digest_t, std::shared_ptr<Expression>> > () = yystack_[0].value.as < std::shared_ptr<Expression> > (); }
     break;
 
-  case 59: // stmt: "module" IDENTIFIER ',' string
+  case 60: // expression_list: %empty
+                                     { yylhs.value.as < expression_list_t > () = expression_list_t {}; }
+    break;
+
+  case 61: // expression_list: expression
+                                     { yylhs.value.as < expression_list_t > () = expression_list_t {yystack_[0].value.as < std::shared_ptr<Expression> > ()}; }
+    break;
+
+  case 62: // expression_list: expression_list ',' expression
+                                     { yylhs.value.as < expression_list_t > () = yystack_[2].value.as < expression_list_t > (); yylhs.value.as < expression_list_t > ().push_back(yystack_[0].value.as < std::shared_ptr<Expression> > ()); }
+    break;
+
+  case 63: // stmt: "module" IDENTIFIER ',' string
     {
         VERIFY(!ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module exists");
         ctx->emplace_module(yystack_[2].value.as < std::string > (), yystack_[0].value.as < std::string > ());
     }
     break;
 
-  case 60: // stmt: "module" IDENTIFIER
+  case 64: // stmt: "module" IDENTIFIER
     {
         VERIFY(!ctx->get_module(yystack_[0].value.as < std::string > ()), yystack_[0].location, "Module exists");
         ctx->emplace_module(yystack_[0].value.as < std::string > (), {});
     }
     break;
 
-  case 61: // stmt: "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition
+  case 65: // stmt: "variant" IDENTIFIER ',' IDENTIFIER ',' variant_condition
     {
         VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
         VERIFY(!ctx->get_module(yystack_[4].value.as < std::string > ())->has_variant(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Variant exists");
@@ -3557,7 +3652,7 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 62: // stmt: "symbol" IDENTIFIER "::" IDENTIFIER ',' string
+  case 66: // stmt: "symbol" IDENTIFIER "::" IDENTIFIER ',' string
     {
         VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
         VERIFY(!ctx->get_module(yystack_[4].value.as < std::string > ())->get_symbol(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Symbol exists");
@@ -3565,7 +3660,7 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 63: // stmt: "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression
+  case 67: // stmt: "address" IDENTIFIER "::" IDENTIFIER ',' '[' identifier_set ']' ',' expression
     {
         VERIFY(ctx->get_module(yystack_[8].value.as < std::string > ()), yystack_[8].location, "Module does not exist");
         VERIFY(ctx->get_module(yystack_[8].value.as < std::string > ())->get_symbol(yystack_[6].value.as < std::string > ()), yystack_[6].location, "Symbol does not exist");
@@ -3573,14 +3668,14 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 64: // stmt: "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value
+  case 68: // stmt: "set" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
         VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
         ctx->get_module(yystack_[4].value.as < std::string > ())->set_attribute(yystack_[2].value.as < std::string > (), yystack_[0].value.as < attribute_value_t > ());
     }
     break;
 
-  case 65: // stmt: "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value
+  case 69: // stmt: "set" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER ',' attribute_value
     {
         VERIFY(ctx->get_module(yystack_[6].value.as < std::string > ()), yystack_[6].location, "Module does not exist");
         VERIFY(ctx->get_module(yystack_[6].value.as < std::string > ())->get_symbol(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Symbol does not exist");
@@ -3588,14 +3683,14 @@ lexer_state->in_pattern_match_expression = false;
     }
     break;
 
-  case 66: // stmt: "tag" IDENTIFIER ',' IDENTIFIER
+  case 70: // stmt: "tag" IDENTIFIER ',' IDENTIFIER
     {
         VERIFY(ctx->get_module(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Module does not exist");
         ctx->get_module(yystack_[2].value.as < std::string > ())->add_tag(yystack_[0].value.as < std::string > ());
     }
     break;
 
-  case 67: // stmt: "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER
+  case 71: // stmt: "tag" IDENTIFIER "::" IDENTIFIER ',' IDENTIFIER
     {
         VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ()), yystack_[4].location, "Module does not exist");
         VERIFY(ctx->get_module(yystack_[4].value.as < std::string > ())->get_symbol(yystack_[2].value.as < std::string > ()), yystack_[2].location, "Symbol does not exist");
@@ -3957,162 +4052,171 @@ lexer_state->in_pattern_match_expression = false;
 
   const signed char Parser::yypact_ninf_ = -46;
 
-  const signed char Parser::yytable_ninf_ = -1;
+  const signed char Parser::yytable_ninf_ = -35;
 
   const short
   Parser::yypact_[] =
   {
-     -46,    50,   -46,    -1,     7,    52,    54,    64,    65,   -46,
-     -46,    26,    33,    63,    67,     5,     8,    74,    79,    83,
-      84,    86,    87,    89,    90,   -46,    92,    51,    56,    57,
-      59,    68,    71,   -46,   -46,    13,    74,    69,   107,     9,
-     117,   112,   -46,   -46,     4,    70,   127,   128,   104,    62,
-     162,    98,    92,   -46,    92,    42,    91,   -46,   -46,    92,
-     -46,   -46,   133,   131,   -46,    37,   124,   132,   -35,   -46,
-     108,   144,    70,    97,    70,    70,    70,    70,    70,    70,
-      70,    70,    70,    70,    70,    70,    70,    70,   -46,   -46,
-     -46,   -46,   -32,     9,   -46,   108,   155,    74,   -46,   128,
-     -46,   -46,    37,    70,   -46,   261,   261,   198,   180,   216,
-     234,   252,   243,   243,    37,    37,    37,    37,   -46,   116,
-     163,   -46,   -46,    92,   -46,   126,   -46,     0,    70,   -46,
-     -46,   134,   -46,   -46,   -46,   -46,   162,   -46,     1,    49,
-     -46,   -46
+     -46,    44,   -46,    19,    22,    56,    57,    62,    69,   -46,
+     -46,   -34,    32,    60,    61,   -15,     4,    68,    76,    77,
+      84,    86,    88,    91,    95,   -46,    97,    64,    65,    79,
+      80,    87,    90,   -46,   -46,    59,    68,    75,   101,    11,
+     109,     7,   -46,   -46,     6,   102,   110,   123,   117,    67,
+     199,    93,    97,   -46,    97,    20,    96,   -46,   -46,    97,
+     -46,   -46,   134,    82,   131,   -46,    34,   124,   126,   -31,
+     -46,   103,   160,   102,   178,   102,   102,   102,   102,   102,
+     102,   102,   102,   102,   102,   102,   102,   102,   102,   -46,
+     -46,   -46,   -46,    24,    11,   -46,   199,   -32,   103,   142,
+      68,   -46,   123,   -46,   -46,    34,   102,   -46,   298,   298,
+     235,   217,   253,   271,   289,    98,    98,    34,    34,    34,
+      34,   -46,   104,   143,   -46,   -46,   102,   -46,    97,   -46,
+     140,   -46,     0,   102,   -46,   199,   -46,   106,   -46,   -46,
+     -46,   -46,   199,   -46,    29,     1,   -46,   -46
   };
 
   const signed char
   Parser::yydefact_[] =
   {
        4,     0,     1,     0,     0,     0,     0,     0,     0,     3,
-       2,    60,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,    48,    59,     0,     0,     0,
-       0,     0,     0,    66,    49,    33,     0,     0,     0,     0,
-       0,    28,     7,     5,     0,    33,     0,     0,    33,    33,
-      58,     0,    57,    61,    62,     0,     0,    50,    52,    51,
-      64,    67,     0,     0,    24,    23,     0,    37,     0,    35,
-       5,     0,    33,     0,    33,    33,    33,    33,    33,    33,
-      33,    33,    33,    33,    33,    33,    33,    33,    30,    53,
-      56,    55,     0,     0,    29,     0,     0,     0,    34,     0,
-       6,     8,    22,    33,    26,    17,    18,    19,    20,    15,
-      16,    14,     9,    10,    11,    12,    13,    21,    47,     0,
-       0,    65,    27,    38,    36,     0,    31,    39,    33,    54,
-      25,     0,    41,    44,    45,    47,    63,    32,    46,    40,
-      42,    43
+       2,    64,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,    49,    63,     0,     0,     0,
+       0,     0,     0,    70,    50,    34,     0,     0,     0,     0,
+       0,    28,     7,     5,     0,    34,     0,     0,    34,    34,
+      59,     0,    58,    65,    66,     0,     0,    51,    53,    52,
+      68,    71,     0,    60,     0,    24,    23,     0,    38,     0,
+      36,     5,     0,    34,     0,    34,    34,    34,    34,    34,
+      34,    34,    34,    34,    34,    34,    34,    34,    34,    30,
+      54,    57,    56,     0,     0,    29,    61,     0,     0,     0,
+       0,    35,     0,     6,     8,    22,    34,    26,    17,    18,
+      19,    20,    15,    16,    14,     9,    10,    11,    12,    13,
+      21,    48,     0,     0,    69,    33,    34,    27,    39,    37,
+       0,    31,    40,    34,    55,    62,    25,     0,    42,    45,
+      46,    48,    67,    32,    47,    41,    43,    44
   };
 
-  const short
+  const signed char
   Parser::yypgoto_[] =
   {
-     -46,   -46,   141,   -45,   -46,   -46,   -46,   -46,    78,   -46,
-     -46,    60,   -16,   101,   -46,   -46,   -46,   -46
+     -46,   -46,   108,   -45,   -46,   -46,   -46,   -46,    45,   -46,
+     -46,    13,   -16,    78,   -46,   -46,   -46,   -46,   -46
   };
 
   const unsigned char
   Parser::yydefgoto_[] =
   {
-       0,     1,    49,    50,   118,   131,    51,    68,    69,   126,
-     138,   127,    59,    60,    91,    92,    53,    10
+       0,     1,    49,    50,   121,   137,    51,    69,    70,   131,
+     144,   132,    59,    60,    92,    93,    53,    97,    10
   };
 
-  const unsigned char
+  const short
   Parser::yytable_[] =
   {
-      65,    26,    11,    71,    73,   132,    98,   133,    99,   119,
-      12,   120,    43,    57,    25,    58,    41,    42,    25,    52,
-      54,    43,    21,   140,   141,    23,   134,   102,    44,   104,
-     105,   106,   107,   108,   109,   110,   111,   112,   113,   114,
-     115,   116,   117,    63,   135,    89,    45,    46,    22,    47,
-       2,    24,    48,    74,   132,    13,   133,    14,   125,     3,
-       4,     5,     6,     7,     8,    41,    42,    15,    16,    17,
-      43,    90,    87,    41,    42,   134,    18,    44,    43,    25,
-      19,   123,    27,   136,    20,    44,    28,    29,     9,    30,
-      31,    72,    32,    33,    35,    45,    46,    34,    47,    36,
-      37,    48,    38,    45,    46,    55,    47,    41,    42,    48,
-      56,    39,    70,    74,    40,    75,    76,    77,    78,    44,
-      61,    79,    80,    81,    82,    83,    84,    85,    86,    62,
-      66,    67,    87,   103,    93,    88,    94,    45,    46,    95,
-      47,    96,    74,    48,    75,    76,    77,    78,   100,    97,
-      79,    80,    81,    82,    83,    84,    85,    86,   122,   128,
-      74,    87,    75,    76,    77,    78,   129,   130,    79,    80,
-      81,    82,    83,    84,    85,    86,   137,   124,    74,    87,
-      75,    76,    77,    78,   101,    64,    79,    80,    81,    82,
-      83,    84,    85,    86,   121,   139,    74,    87,    75,    76,
-      77,     0,     0,     0,    79,    80,    81,    82,    83,    84,
-      85,    86,     0,     0,    74,    87,    75,    76,     0,     0,
-       0,     0,    79,    80,    81,    82,    83,    84,    85,    86,
-       0,     0,    74,    87,    75,    76,     0,     0,     0,     0,
-       0,    80,    81,    82,    83,    84,    85,    86,     0,     0,
-      74,    87,    75,    76,     0,     0,     0,     0,     0,    74,
-      81,    82,    83,    84,    85,    86,     0,     0,    74,    87,
-      75,    76,    84,    85,    86,     0,     0,    74,    87,    82,
-      83,    84,    85,    86,     0,     0,     0,    87,    82,    83,
-      84,    85,    86,     0,     0,     0,    87
+      66,    26,    21,    72,    74,   138,   138,   139,   139,   125,
+      17,   101,   126,   102,    43,    57,    25,    58,    96,    52,
+      54,    23,    11,    90,    62,    12,   140,   140,   105,    22,
+     107,   108,   109,   110,   111,   112,   113,   114,   115,   116,
+     117,   118,   119,   120,     2,   141,    64,    63,    24,    91,
+      75,   146,   147,     3,     4,     5,     6,     7,     8,    13,
+      14,   130,    41,    42,    25,    15,   122,    43,   123,    88,
+      41,    42,    16,    25,    44,    43,    18,    19,    20,    27,
+      28,   135,    44,     9,   128,    41,    42,    29,   142,    30,
+      43,    31,    45,    46,    32,    47,    73,    44,    33,    48,
+      45,    46,    34,    47,    56,    41,    42,    48,    35,    36,
+      43,    55,    61,    67,    75,    45,    46,    44,    47,   -34,
+      41,    42,    48,    37,    38,    71,    68,    85,    86,    87,
+      89,    39,    44,    88,    40,    45,    46,    95,    47,    98,
+      94,    99,    48,   100,   103,   127,   134,   129,   133,   143,
+      45,    46,    65,    47,   145,     0,    75,    48,    76,    77,
+      78,    79,     0,     0,    80,    81,    82,    83,    84,    85,
+      86,    87,   124,     0,     0,    88,    75,     0,    76,    77,
+      78,    79,   136,     0,    80,    81,    82,    83,    84,    85,
+      86,    87,     0,     0,    75,    88,    76,    77,    78,    79,
+       0,   104,    80,    81,    82,    83,    84,    85,    86,    87,
+       0,     0,     0,    88,   106,    75,     0,    76,    77,    78,
+      79,     0,     0,    80,    81,    82,    83,    84,    85,    86,
+      87,     0,     0,    75,    88,    76,    77,    78,     0,     0,
+       0,    80,    81,    82,    83,    84,    85,    86,    87,     0,
+       0,    75,    88,    76,    77,     0,     0,     0,     0,    80,
+      81,    82,    83,    84,    85,    86,    87,     0,     0,    75,
+      88,    76,    77,     0,     0,     0,     0,     0,    81,    82,
+      83,    84,    85,    86,    87,     0,     0,    75,    88,    76,
+      77,     0,     0,     0,     0,     0,     0,    82,    83,    84,
+      85,    86,    87,     0,     0,    75,    88,    76,    77,     0,
+       0,     0,     0,     0,    75,     0,    83,    84,    85,    86,
+      87,     0,     0,     0,    88,    83,    84,    85,    86,    87,
+       0,     0,     0,    88
   };
 
   const short
   Parser::yycheck_[] =
   {
-      45,    17,     3,    48,    49,     5,    41,     7,    43,    41,
-       3,    43,     8,     4,     5,     6,     3,     4,     5,    35,
-      36,     8,    17,    22,    23,    17,    26,    72,    15,    74,
+      45,    17,    17,    48,    49,     5,     5,     7,     7,    41,
+      44,    42,    44,    44,     8,     4,     5,     6,    63,    35,
+      36,    17,     3,     3,    17,     3,    26,    26,    73,    44,
       75,    76,    77,    78,    79,    80,    81,    82,    83,    84,
-      85,    86,    87,    39,    44,     3,    33,    34,    43,    36,
-       0,    43,    39,    16,     5,     3,     7,     3,   103,     9,
-      10,    11,    12,    13,    14,     3,     4,     3,     3,    43,
-       8,    29,    35,     3,     4,    26,    43,    15,     8,     5,
-      17,    97,     3,   128,    17,    15,     3,     3,    38,     3,
-       3,    29,     3,     3,    43,    33,    34,     5,    36,    43,
-      43,    39,    43,    33,    34,    36,    36,     3,     4,    39,
-       3,    43,     8,    16,    43,    18,    19,    20,    21,    15,
-       3,    24,    25,    26,    27,    28,    29,    30,    31,    17,
-       3,     3,    35,    36,    43,    37,     3,    33,    34,     8,
-      36,    17,    16,    39,    18,    19,    20,    21,    40,    17,
-      24,    25,    26,    27,    28,    29,    30,    31,     3,    43,
-      16,    35,    18,    19,    20,    21,     3,    41,    24,    25,
-      26,    27,    28,    29,    30,    31,    42,    99,    16,    35,
-      18,    19,    20,    21,    40,    44,    24,    25,    26,    27,
-      28,    29,    30,    31,    93,   135,    16,    35,    18,    19,
-      20,    -1,    -1,    -1,    24,    25,    26,    27,    28,    29,
-      30,    31,    -1,    -1,    16,    35,    18,    19,    -1,    -1,
-      -1,    -1,    24,    25,    26,    27,    28,    29,    30,    31,
-      -1,    -1,    16,    35,    18,    19,    -1,    -1,    -1,    -1,
-      -1,    25,    26,    27,    28,    29,    30,    31,    -1,    -1,
-      16,    35,    18,    19,    -1,    -1,    -1,    -1,    -1,    16,
-      26,    27,    28,    29,    30,    31,    -1,    -1,    16,    35,
-      18,    19,    29,    30,    31,    -1,    -1,    16,    35,    27,
-      28,    29,    30,    31,    -1,    -1,    -1,    35,    27,    28,
-      29,    30,    31,    -1,    -1,    -1,    35
+      85,    86,    87,    88,     0,    45,    40,    40,    44,    29,
+      16,    22,    23,     9,    10,    11,    12,    13,    14,     3,
+       3,   106,     3,     4,     5,     3,    42,     8,    44,    35,
+       3,     4,     3,     5,    15,     8,    44,    17,    17,     3,
+       3,   126,    15,    39,   100,     3,     4,     3,   133,     3,
+       8,     3,    33,    34,     3,    36,    29,    15,     3,    40,
+      33,    34,     5,    36,     3,     3,     4,    40,    44,    44,
+       8,    36,     3,     3,    16,    33,    34,    15,    36,    37,
+       3,     4,    40,    44,    44,     8,     3,    29,    30,    31,
+      37,    44,    15,    35,    44,    33,    34,     3,    36,     8,
+      44,    17,    40,    17,    41,     3,     3,   102,    44,    43,
+      33,    34,    44,    36,   141,    -1,    16,    40,    18,    19,
+      20,    21,    -1,    -1,    24,    25,    26,    27,    28,    29,
+      30,    31,    94,    -1,    -1,    35,    16,    -1,    18,    19,
+      20,    21,    42,    -1,    24,    25,    26,    27,    28,    29,
+      30,    31,    -1,    -1,    16,    35,    18,    19,    20,    21,
+      -1,    41,    24,    25,    26,    27,    28,    29,    30,    31,
+      -1,    -1,    -1,    35,    36,    16,    -1,    18,    19,    20,
+      21,    -1,    -1,    24,    25,    26,    27,    28,    29,    30,
+      31,    -1,    -1,    16,    35,    18,    19,    20,    -1,    -1,
+      -1,    24,    25,    26,    27,    28,    29,    30,    31,    -1,
+      -1,    16,    35,    18,    19,    -1,    -1,    -1,    -1,    24,
+      25,    26,    27,    28,    29,    30,    31,    -1,    -1,    16,
+      35,    18,    19,    -1,    -1,    -1,    -1,    -1,    25,    26,
+      27,    28,    29,    30,    31,    -1,    -1,    16,    35,    18,
+      19,    -1,    -1,    -1,    -1,    -1,    -1,    26,    27,    28,
+      29,    30,    31,    -1,    -1,    16,    35,    18,    19,    -1,
+      -1,    -1,    -1,    -1,    16,    -1,    27,    28,    29,    30,
+      31,    -1,    -1,    -1,    35,    27,    28,    29,    30,    31,
+      -1,    -1,    -1,    35
   };
 
   const signed char
   Parser::yystos_[] =
   {
-       0,    46,     0,     9,    10,    11,    12,    13,    14,    38,
-      62,     3,     3,     3,     3,     3,     3,    43,    43,    17,
-      17,    17,    43,    17,    43,     5,    57,     3,     3,     3,
-       3,     3,     3,     3,     5,    43,    43,    43,    43,    43,
-      43,     3,     4,     8,    15,    33,    34,    36,    39,    47,
-      48,    51,    57,    61,    57,    36,     3,     4,     6,    57,
-      58,     3,    17,    39,    47,    48,     3,     3,    52,    53,
-       8,    48,    29,    48,    16,    18,    19,    20,    21,    24,
-      25,    26,    27,    28,    29,    30,    31,    35,    37,     3,
-      29,    59,    60,    43,     3,     8,    17,    17,    41,    43,
-      40,    40,    48,    36,    48,    48,    48,    48,    48,    48,
-      48,    48,    48,    48,    48,    48,    48,    48,    49,    41,
-      43,    58,     3,    57,    53,    48,    54,    56,    43,     3,
-      41,    50,     5,     7,    26,    44,    48,    42,    55,    56,
-      22,    23
+       0,    47,     0,     9,    10,    11,    12,    13,    14,    39,
+      64,     3,     3,     3,     3,     3,     3,    44,    44,    17,
+      17,    17,    44,    17,    44,     5,    58,     3,     3,     3,
+       3,     3,     3,     3,     5,    44,    44,    44,    44,    44,
+      44,     3,     4,     8,    15,    33,    34,    36,    40,    48,
+      49,    52,    58,    62,    58,    36,     3,     4,     6,    58,
+      59,     3,    17,    40,    40,    48,    49,     3,     3,    53,
+      54,     8,    49,    29,    49,    16,    18,    19,    20,    21,
+      24,    25,    26,    27,    28,    29,    30,    31,    35,    37,
+       3,    29,    60,    61,    44,     3,    49,    63,     8,    17,
+      17,    42,    44,    41,    41,    49,    36,    49,    49,    49,
+      49,    49,    49,    49,    49,    49,    49,    49,    49,    49,
+      49,    50,    42,    44,    59,    41,    44,     3,    58,    54,
+      49,    55,    57,    44,     3,    49,    42,    51,     5,     7,
+      26,    45,    49,    43,    56,    57,    22,    23
   };
 
   const signed char
   Parser::yyr1_[] =
   {
-       0,    45,    46,    46,    46,    47,    47,    48,    48,    48,
-      48,    48,    48,    48,    48,    48,    48,    48,    48,    48,
-      48,    48,    48,    48,    48,    48,    48,    48,    48,    48,
-      49,    50,    48,    51,    51,    52,    52,    53,    53,    54,
-      54,    55,    55,    55,    56,    56,    56,    56,    57,    57,
-      58,    58,    58,    59,    59,    60,    60,    61,    61,    62,
-      62,    62,    62,    62,    62,    62,    62,    62
+       0,    46,    47,    47,    47,    48,    48,    49,    49,    49,
+      49,    49,    49,    49,    49,    49,    49,    49,    49,    49,
+      49,    49,    49,    49,    49,    49,    49,    49,    49,    49,
+      50,    51,    49,    49,    52,    52,    53,    53,    54,    54,
+      55,    55,    56,    56,    56,    57,    57,    57,    57,    58,
+      58,    59,    59,    59,    60,    60,    61,    61,    62,    62,
+      63,    63,    63,    64,    64,    64,    64,    64,    64,    64,
+      64,    64
   };
 
   const signed char
@@ -4121,10 +4225,11 @@ lexer_state->in_pattern_match_expression = false;
        0,     2,     2,     2,     0,     1,     3,     1,     3,     3,
        3,     3,     3,     3,     3,     3,     3,     3,     3,     3,
        3,     3,     3,     2,     2,     5,     3,     4,     1,     3,
-       0,     0,     6,     0,     3,     1,     3,     1,     3,     1,
-       3,     0,     2,     2,     2,     2,     3,     0,     1,     2,
-       1,     1,     1,     1,     3,     1,     1,     1,     1,     4,
-       2,     6,     6,    10,     6,     8,     4,     6
+       0,     0,     6,     4,     0,     3,     1,     3,     1,     3,
+       1,     3,     0,     2,     2,     2,     2,     3,     0,     1,
+       2,     1,     1,     1,     1,     3,     1,     1,     1,     1,
+       0,     1,     3,     4,     2,     6,     6,    10,     6,     8,
+       4,     6
   };
 
 
@@ -4139,12 +4244,13 @@ lexer_state->in_pattern_match_expression = false;
   "\"symbol\"", "\"address\"", "\"set\"", "\"tag\"", "\"sizeof\"",
   "\"->\"", "\"::\"", "\"<<\"", "\">>\"", "\"&&\"", "\"||\"", "\"wide\"",
   "\"ascii\"", "'|'", "'^'", "'&'", "'+'", "'-'", "'*'", "'/'", "'%'",
-  "INDIRECTION", "'@'", "'!'", "'~'", "'['", "'{'", "';'", "'('", "')'",
-  "']'", "'}'", "','", "':'", "$accept", "slist", "type", "expression",
-  "$@1", "$@2", "pattern_match_filter", "pattern_match_filter_list",
-  "pattern_match_filter_atom", "pattern_match_body", "string_modifiers",
-  "pattern_byte_list", "string", "attribute_value", "identifier_set_full",
-  "identifier_set", "variant_condition", "stmt", YY_NULLPTR
+  "INDIRECTION", "'@'", "'!'", "'~'", "'['", "'{'", "USEROP_CALL", "';'",
+  "'('", "')'", "']'", "'}'", "','", "':'", "$accept", "slist", "type",
+  "expression", "$@1", "$@2", "pattern_match_filter",
+  "pattern_match_filter_list", "pattern_match_filter_atom",
+  "pattern_match_body", "string_modifiers", "pattern_byte_list", "string",
+  "attribute_value", "identifier_set_full", "identifier_set",
+  "variant_condition", "expression_list", "stmt", YY_NULLPTR
   };
 #endif
 
@@ -4153,13 +4259,14 @@ lexer_state->in_pattern_match_expression = false;
   const short
   Parser::yyrline_[] =
   {
-       0,   128,   128,   129,   130,   134,   135,   139,   140,   142,
-     143,   144,   145,   146,   148,   149,   150,   151,   152,   153,
-     154,   156,   158,   159,   160,   161,   162,   163,   168,   173,
-     179,   179,   179,   186,   187,   194,   198,   206,   211,   219,
-     220,   235,   236,   237,   241,   246,   252,   265,   269,   270,
-     274,   275,   276,   280,   281,   285,   286,   290,   296,   300,
-     305,   310,   316,   322,   328,   333,   339,   344
+       0,   129,   129,   130,   131,   135,   136,   140,   141,   143,
+     144,   145,   146,   147,   149,   150,   151,   152,   153,   154,
+     155,   157,   159,   160,   161,   162,   163,   164,   169,   174,
+     180,   180,   180,   184,   195,   196,   203,   207,   215,   220,
+     228,   229,   244,   245,   246,   250,   255,   261,   274,   278,
+     279,   283,   284,   285,   289,   290,   294,   295,   299,   305,
+     309,   310,   311,   315,   320,   325,   331,   337,   343,   348,
+     354,   359
   };
 
   void

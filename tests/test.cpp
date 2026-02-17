@@ -317,3 +317,114 @@ address fuel::ModuloByZero, [*], 0 % 0;
                          ->calculate_address<void *>();
     REQUIRE(!result_mz);
 }
+
+sinker::expression_value_t __cdecl foo(sinker::expression_value_t a, sinker::expression_value_t b, sinker::expression_value_t c) {
+    return a * b + c;
+}
+
+sinker::expression_value_t __cdecl bar() {
+    return 1337;
+}
+
+sinker::expression_value_t __cdecl baz(sinker::expression_value_t first, ...) {
+    return first;
+}
+
+TEST_CASE("UserOp", "[runtime]") {
+    sinker::Context context;
+
+    context.emplace_user_op("foo", foo);
+    context.emplace_user_op("bar", bar);
+    context.emplace_user_op("baz", baz);
+
+    std::string input = R"?(module fuel;
+symbol fuel::fromFoo, "void *";
+address fuel::fromFoo, [*], foo(4, 5, 6);
+symbol fuel::fromBar, "void *";
+address fuel::fromBar, [*], bar();
+symbol fuel::fromBaz, "void *";
+address fuel::fromBaz, [*], baz(99, 1, 2, 3, 4);
+)?";
+
+    REQUIRE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+
+    std::stringstream output;
+    context.dump(output);
+    REQUIRE(output.str() == input);
+
+    REQUIRE(context.get_module("fuel")->concretize());
+    auto result_from_foo = context.get_module("fuel")
+                         ->get_symbol("fromFoo")
+                         ->calculate_address<void *>();
+    REQUIRE(result_from_foo);
+    REQUIRE((void *)result_from_foo.value() == (void *)(4 * 5 + 6));
+    auto result_from_bar = context.get_module("fuel")
+                          ->get_symbol("fromBar")
+                          ->calculate_address<void *>();
+    REQUIRE(result_from_bar);
+    REQUIRE((void *)result_from_bar.value() == (void *)1337);
+    auto result_from_baz = context.get_module("fuel")
+                         ->get_symbol("fromBaz")
+                         ->calculate_address<void *>();
+    REQUIRE(result_from_baz);
+    REQUIRE((void *)result_from_baz.value() == (void *)99);
+}
+
+TEST_CASE("UserOp Arity Validation", "[runtime]") {
+    {
+        sinker::Context context;
+        context.emplace_user_op("foo", foo);
+
+        std::string input = R"?(module fuel;
+symbol fuel::tooFew, "void *";
+address fuel::tooFew, [*], foo(1, 2);
+)?";
+
+        REQUIRE_FALSE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    }
+
+    {
+        sinker::Context context;
+        context.emplace_user_op("bar", bar);
+
+        std::string input = R"?(module fuel;
+symbol fuel::tooMany, "void *";
+address fuel::tooMany, [*], bar(1);
+)?";
+
+        REQUIRE_FALSE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    }
+
+    {
+        sinker::Context context;
+        context.emplace_user_op("baz", baz);
+
+        std::string input = R"?(module fuel;
+symbol fuel::tooFewVariadic, "void *";
+address fuel::tooFewVariadic, [*], baz();
+)?";
+
+        REQUIRE_FALSE(context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    }
+
+    {
+        sinker::Context context;
+        context.emplace_user_op("baz", baz);
+
+        std::ostringstream args;
+        for (std::size_t i = 0; i <= sinker::USER_OP_MAX_ARITY; ++i) {
+            if (i != 0) {
+                args << ", ";
+            }
+            args << i;
+        }
+
+        std::string input = "module fuel;\n"
+                            "symbol fuel::tooManyVariadic, \"void *\";\n"
+                            "address fuel::tooManyVariadic, [*], baz(" +
+                            args.str() + ");\n";
+
+        REQUIRE_FALSE(
+            context.interpret(input, sinker::Language::SINKER, "test.skr"));
+    }
+}
