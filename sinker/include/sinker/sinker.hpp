@@ -1,7 +1,23 @@
 #ifndef SINKER_HPP
 #define SINKER_HPP
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define SINKER_DEFINED_WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define SINKER_DEFINED_NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
+#ifdef SINKER_DEFINED_NOMINMAX
+#undef NOMINMAX
+#undef SINKER_DEFINED_NOMINMAX
+#endif
+#ifdef SINKER_DEFINED_WIN32_LEAN_AND_MEAN
+#undef WIN32_LEAN_AND_MEAN
+#undef SINKER_DEFINED_WIN32_LEAN_AND_MEAN
+#endif
 #include <cstdio>
 #include <detours.h>
 
@@ -1085,41 +1101,147 @@ template <typename T> class Detour : public Installable, public Uninstallable {
 
 template <typename T> class Patch : public Installable, public Uninstallable {
   public:
-    Patch(T *dst, T *src) : dst(dst), src(src) {}
+    using value_type = std::remove_extent_t<T>;
+    static constexpr bool is_array = std::is_array_v<T>;
+    static constexpr std::size_t value_count = is_array ? std::extent_v<T> : 1;
+    using pointer_type = std::conditional_t<is_array, value_type *, T *>;
+    static_assert(std::is_trivially_copyable_v<value_type>,
+                  "Patch value type must be trivially copyable");
+    static_assert(value_count > 0,
+                  "Patch does not support arrays with unknown bound");
+
+    Patch(pointer_type dst, pointer_type src) : dst(dst), src(src) {}
     virtual void install() override {
-        backup = *dst;
-        *dst = *src;
-    }
+        SIZE_T patch_size = sizeof(value_type) * value_count;
+        std::vector<ProtectionRegion> regions;
+        if (!make_patch_writable(patch_size, regions)) {
+            assert(!"Failed to make patch memory writable");
+            return;
+        }
 
-    virtual void uninstall() override { *dst = backup; }
-
-  private:
-    T *dst = {};
-    T *src = {};
-    T backup = {};
-};
-
-template <typename T, std::size_t N>
-class Patch<T[N]> : public Installable, public Uninstallable {
-  public:
-    Patch(T *dst, T *src) : dst(dst), src(src) {}
-    virtual void install() override {
-        for (std::size_t i = 0; i < N; ++i) {
+        for (std::size_t i = 0; i < value_count; ++i) {
             backup[i] = dst[i];
             dst[i] = src[i];
+        }
+
+        FlushInstructionCache(GetCurrentProcess(),
+                              reinterpret_cast<void const *>(dst), patch_size);
+
+        if (!restore_patch_protection(regions)) {
+            assert(!"Failed to restore patch memory protection");
+            return;
         }
     }
 
     virtual void uninstall() override {
-        for (std::size_t i = 0; i < N; ++i) {
+        SIZE_T patch_size = sizeof(value_type) * value_count;
+        std::vector<ProtectionRegion> regions;
+        if (!make_patch_writable(patch_size, regions)) {
+            assert(!"Failed to make patch memory writable");
+            return;
+        }
+
+        for (std::size_t i = 0; i < value_count; ++i) {
             dst[i] = backup[i];
+        }
+
+        FlushInstructionCache(GetCurrentProcess(),
+                              reinterpret_cast<void const *>(dst), patch_size);
+
+        if (!restore_patch_protection(regions)) {
+            assert(!"Failed to restore patch memory protection");
+            return;
         }
     }
 
   private:
-    T *dst = {};
-    T *src = {};
-    T backup[N] = {};
+    struct ProtectionRegion {
+        void *address;
+        SIZE_T size;
+        DWORD old_protect;
+    };
+
+    static DWORD patch_writable_protection(DWORD protection) {
+        constexpr DWORD access_mask = PAGE_NOACCESS | PAGE_READONLY |
+                                      PAGE_READWRITE | PAGE_WRITECOPY |
+                                      PAGE_EXECUTE | PAGE_EXECUTE_READ |
+                                      PAGE_EXECUTE_READWRITE |
+                                      PAGE_EXECUTE_WRITECOPY;
+        DWORD access = protection & access_mask;
+        DWORD modifiers = protection & ~access_mask;
+        modifiers &= ~PAGE_GUARD;
+        switch (access) {
+        case PAGE_EXECUTE:
+        case PAGE_EXECUTE_READ:
+        case PAGE_EXECUTE_READWRITE:
+            return PAGE_EXECUTE_READWRITE | modifiers;
+        case PAGE_EXECUTE_WRITECOPY:
+            return PAGE_EXECUTE_WRITECOPY | modifiers;
+        case PAGE_WRITECOPY:
+            return PAGE_WRITECOPY | modifiers;
+        case PAGE_READWRITE:
+            return PAGE_READWRITE | modifiers;
+        case PAGE_READONLY:
+        case PAGE_NOACCESS:
+        default:
+            return PAGE_READWRITE | modifiers;
+        }
+    }
+
+    bool make_patch_writable(SIZE_T patch_size,
+                             std::vector<ProtectionRegion> &regions) const {
+        regions.clear();
+        std::uintptr_t cur = reinterpret_cast<std::uintptr_t>(dst);
+        std::uintptr_t end = cur + patch_size;
+
+        while (cur < end) {
+            MEMORY_BASIC_INFORMATION mbi = {};
+            SIZE_T queried = VirtualQuery(reinterpret_cast<void const *>(cur),
+                                          &mbi, sizeof(mbi));
+            if (queried != sizeof(mbi) || mbi.RegionSize == 0) {
+                bool rollback_ok = restore_patch_protection(regions);
+                assert(rollback_ok && "Failed to rollback patch memory protection");
+                regions.clear();
+                return false;
+            }
+
+            std::uintptr_t region_end = std::min(
+                end, reinterpret_cast<std::uintptr_t>(mbi.BaseAddress) + mbi.RegionSize);
+            SIZE_T region_size = region_end - cur;
+            DWORD old_protect = 0;
+            BOOL protection_updated =
+                VirtualProtect(reinterpret_cast<void *>(cur), region_size,
+                               patch_writable_protection(mbi.Protect), &old_protect);
+            if (protection_updated == 0) {
+                bool rollback_ok = restore_patch_protection(regions);
+                assert(rollback_ok && "Failed to rollback patch memory protection");
+                regions.clear();
+                return false;
+            }
+
+            regions.push_back({reinterpret_cast<void *>(cur), region_size,
+                               old_protect});
+            cur = region_end;
+        }
+
+        return true;
+    }
+
+    bool restore_patch_protection(
+        std::vector<ProtectionRegion> const &regions) const {
+        bool success = true;
+        for (auto it = regions.rbegin(); it != regions.rend(); ++it) {
+            DWORD ignored = 0;
+            BOOL protection_restored =
+                VirtualProtect(it->address, it->size, it->old_protect, &ignored);
+            success = success && (protection_restored != 0);
+        }
+        return success;
+    }
+
+    pointer_type dst = {};
+    pointer_type src = {};
+    value_type backup[value_count] = {};
 };
 
 class Action {
